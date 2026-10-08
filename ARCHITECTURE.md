@@ -13,7 +13,7 @@ Browser
           -> PostgreSQL (records, permissions, chunks, pgvector)
           -> Redis (BullMQ, cache, rate limits)
           -> S3-compatible storage (originals, derivatives, audio)
-          -> Allowlisted LLM / embedding / speech providers
+          -> Allowlisted LLM / embedding providers (speech providers only in Version 2)
 NestJS worker (same code, worker entry)
   -> same database, queue, storage, and allowlisted providers
 ```

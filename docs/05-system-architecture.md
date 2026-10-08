@@ -10,9 +10,10 @@ Modular monolith. One deployable API image. The worker is the same image with `n
 apps/api/src/modules/
   auth, users, audit, personas, consent, authorization,
   files, ingestion, processing, personality, memory,
-  retrieval, conversation, relationships, voice, media,
+  retrieval, conversation, relationships, media,
   evaluation, admin, billing-usage, health
 ```
+Voice is a Version 2 module and is not part of the Version 1 Nest layout.
 
 Dependency direction: HTTP controllers depend on application services. Services depend on repositories and ports (`LlmPort`, `EmbeddingPort`, `ObjectStorePort`, `ScannerPort`). Adapters sit at the edge. Domain modules do not import provider SDKs.
 

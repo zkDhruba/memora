@@ -2,7 +2,7 @@
 
 Related: [07-personality-engine.md](07-personality-engine.md), [08-memory-system.md](08-memory-system.md), [10-ingestion-pipeline.md](10-ingestion-pipeline.md), [12-api-design.md](12-api-design.md), [13-frontend-architecture.md](13-frontend-architecture.md).
 
-Priority labels: **MVP**, **P4**, **P5**, **P6**.
+Priority labels: **MVP**, **P4**, **P5** (images in Version 1), **P6**, **V2** (voice — next product version).
 
 ## Module A — Authentication and user management
 
@@ -50,7 +50,7 @@ Participants also have an audience tag (`family`, `friend`, `colleague`, `privat
 4. Consent: processing purpose, named provider, retention, and the simulation disclosure.
 5. Persona is created in `draft` until consent is stored, then `collecting`.
 
-Fields: id, display name, alternate names, profile object key, biography, languages, birth year (optional), death year (legacy only), communication notes, interests, voice config placeholder, readiness, privacy preset, created and updated timestamps.
+Fields: id, display name, alternate names, profile object key, biography, languages, birth year (optional), death year (legacy only), communication notes, interests, readiness, privacy preset, created and updated timestamps. A voice-configuration field is reserved for Version 2 and is not shown in Version 1 UI.
 
 AI-assisted extraction (**MVP**, after the first successful import) proposes traits and memories as `pending_review`. Nothing pending is eligible for chat retrieval.
 
@@ -62,7 +62,9 @@ Review actions: confirm, correct, reject, annotate. Confirmed items become retri
 
 **P4:** Telegram `result.json`, `.eml` / `.mbox`, generic SMS CSV mapping, Facebook Messenger JSON export if the user supplies the download.
 
-**P5:** images, audio, video. Video is demuxed to an audio track for transcription; frames are not understood in the first multimodal slice.
+**P5:** images (JPEG, PNG, WebP) for captions and memory linking.
+
+**V2:** audio and video source uploads (voice notes, call recordings). Video is demuxed to an audio track for transcription; frames are not understood in the first multimodal slice.
 
 For each source the pipeline records the items in [10-ingestion-pipeline.md](10-ingestion-pipeline.md): format, parser, metadata, participants, threads, timestamps, attachments, validation, scan status, dedupe key, consent snapshot, errors, and reprocess generation.
 
@@ -112,17 +114,19 @@ Context assembly is specified in [06-ai-architecture.md](06-ai-architecture.md).
 
 ## Module J — Voice
 
-| Phase | Behavior |
-| --- | --- |
-| P5a | Record in the browser, upload, transcribe, reply in text, optional TTS playback of the reply |
-| P5b | WebSocket audio stream, barge-in by stopping TTS, shared conversation session with text |
-| P5c | Consented synthetic voice, off by default, watermarked disclosure in the player |
+**Held for Version 2.** Version 1 ships text conversation only. No microphone UI, no TTS player, no duplex socket, and no voice cloning in Version 1.
 
-Custom voice requires a living subject in the session, a fresh consent, and a recorded consent phrase. Legacy voice cloning is disabled until counsel and the product owner explicitly enable a separate design. See [14-security-privacy-consent.md](14-security-privacy-consent.md).
+| Version 2 slice | Behavior |
+| --- | --- |
+| V2a | Record in the browser, upload, transcribe, reply in text, optional stock TTS playback of the reply |
+| V2b | WebSocket audio stream, barge-in by stopping TTS, shared conversation session with text |
+| V2c | Consented synthetic voice, off by default, watermarked disclosure in the player |
+
+Custom voice requires a living subject in the session, a fresh consent, and a recorded consent phrase. Legacy voice cloning is disabled until counsel and the product owner explicitly enable a separate design. See [14-security-privacy-consent.md](14-security-privacy-consent.md) and [18-development-roadmap.md](18-development-roadmap.md).
 
 ## Module K — Images
 
-**P5.** Store bytes and EXIF time. A vision call writes an observed description and a separate speculative column that is not retrievable until a human confirms it. No inference of health, ethnicity, religion, or identity beyond faces the owner has already named.
+**P5 (Version 1).** Store bytes and EXIF time. A vision call writes an observed description and a separate speculative column that is not retrievable until a human confirms it. No inference of health, ethnicity, religion, or identity beyond faces the owner has already named.
 
 ## Module L — Calibration and evaluation
 
@@ -134,7 +138,7 @@ Custom voice requires a living subject in the session, a fresh consent, and a re
 
 ## Module N — Product UI
 
-Screens are listed in [13-frontend-architecture.md](13-frontend-architecture.md). MVP screens: landing, auth, dashboard, create wizard, persona overview, upload, import status, review inbox, chat, privacy, account. Later screens ship with their phase.
+Screens are listed in [13-frontend-architecture.md](13-frontend-architecture.md). MVP screens: landing, auth, dashboard, create wizard, persona overview, upload, import status, review inbox, **text** chat, privacy, account. Image screens ship in Phase 5. Voice screens ship only in Version 2.
 
 ## Module O — Administration
 

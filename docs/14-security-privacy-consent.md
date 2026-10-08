@@ -12,7 +12,7 @@ This document is an engineering control set and a review checklist. It is **not 
 4. Legacy personas cannot chat until an authorization attestation is stored. Dispute sets status `suspended` and disables chat and new processing.
 5. Chat exports do not make other participants fair game. Their utterances are excluded from embeddings and from participant-visible answers until the owner records a basis and a reviewer includes specific excerpts.
 6. Children's data: do not onboard a subject the creator describes as under 18. If a corpus appears to contain a child's intimate data, quarantine the file for the owner to delete.
-7. Voice cloning is off unless a later design records explicit consent from the voice subject. A deceased person's voice is not cloned in the current plan.
+7. Voice interaction and voice cloning are Version 2. Version 1 has no microphone, TTS, or cloning surfaces. When Version 2 opens, cloning stays off unless a later design records explicit consent from the voice subject. A deceased person's voice is not cloned in the current plan.
 8. Administrators do not get a memories browser.
 
 ## Authorization model
@@ -79,8 +79,8 @@ Trusted contacts can request suspension through a signed email link. They cannot
 
 - No public persona pages and no indexing. `robots` disallow and no sitemap of personas.
 - Rate limits and a report button that suspends on admin action.
-- Download of audio carries the disclosure in the filename and a spoken prefix in Phase 5: "This is a synthetic voice."
-- The product refuses requests to generate the person's voice saying a crime, a financial instruction, or a password. That is a policy filter on voice and on chat, keyword-based in the MVP, reviewed when it false-positives.
+- Version 1 has no audio download path. When Version 2 adds TTS or cloned audio, downloads carry disclosure in the filename and a spoken prefix: "This is a synthetic voice."
+- Chat (Version 1) and voice (Version 2) refuse requests to produce criminal, financial-instruction, or password content in the person's style. Keyword-based filter in the MVP; review false positives when they appear.
 
 ## Prompt injection and malicious files
 
@@ -114,7 +114,7 @@ Checklist:
 - [ ] Obtain the Gazette text and any rules.
 - [ ] Confirm roles: who is the data fiduciary for a user-created twin (likely the operating company, possibly also the owner as a controller of third-party chat data).
 - [ ] Confirm lawful basis for processing other participants' messages.
-- [ ] Confirm whether voice and personality profiles are sensitive or biometric.
+- [ ] Confirm whether personality profiles are sensitive. Reconfirm voiceprints as biometric before Version 2.
 - [ ] Confirm cross-border transfer conditions before sending text to Anthropic or OpenAI. If transfers of this data are not permitted, stop and switch to an approved region or a local model.
 - [ ] Confirm breach-notice timelines and the regulator.
 - [ ] Confirm retention and deletion duties.

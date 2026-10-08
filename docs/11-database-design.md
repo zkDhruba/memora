@@ -113,7 +113,7 @@ Conversational memories live in `memories` with `domain = conversational`. No se
 
 **evaluation_runs** and **evaluation_cases** — Phase 4. See [17-testing-evaluation.md](17-testing-evaluation.md).
 
-**voice_profiles** — Phase 5: `persona_id`, `status`, `consent_id`, `provider_voice_ref`. No raw biometric template in Postgres if the provider stores the voice; store only the reference and the consent id.
+**voice_profiles** — Version 2 only: `persona_id`, `status`, `consent_id`, `provider_voice_ref`. Do not create this table in Version 1 migrations. No raw biometric template in Postgres if the provider stores the voice; store only the reference and the consent id.
 
 ## Indexes to create with the MVP migration
 

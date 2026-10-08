@@ -183,7 +183,11 @@ sequenceDiagram
 
 Phase 4 behavior. The MVP uses the membership audience only.
 
-## 12. Real-time voice (Phase 5b)
+## 12. Real-time voice (Version 2 — held)
+
+Version 1 has no voice sequence. Text chat is sequence 9–11.
+
+When Version 2 opens:
 
 ```mermaid
 sequenceDiagram
@@ -202,7 +206,7 @@ sequenceDiagram
   API-->>User: Audio frames and disclosure event
 ```
 
-Phase 5a instead uploads a finished recording and returns text, then optional TTS. Custom cloned voice is not this diagram.
+Version 2a instead uploads a finished recording and returns text, then optional stock TTS. Custom cloned voice is not this diagram and stays gated.
 
 ## 13. Add material to an existing persona
 

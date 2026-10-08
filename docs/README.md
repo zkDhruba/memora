@@ -27,3 +27,5 @@
 Diagrams: [system context](diagrams/01-system-context.md), [containers](diagrams/02-containers.md), [orchestration](diagrams/03-orchestration.md), [ingestion](diagrams/04-ingestion-flow.md), [memory separation](diagrams/05-memory-separation.md), [ER](diagrams/06-er-diagram.md), [sequences](diagrams/07-sequences.md).
 
 Checked against primary sources on 8 October 2026: Next.js 16.4.0, NestJS 12, pgvector 0.8.7, OpenAI pricing, Anthropic pricing, Hetzner Cloud price adjustment of 15 June 2026. This set is not legal advice.
+
+**Scope note:** Version 1 is text conversation. Voice (Module J) is held for Version 2. See [PROJECT_PLAN.md](../PROJECT_PLAN.md) and [18-development-roadmap.md](18-development-roadmap.md).

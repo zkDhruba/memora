@@ -6,6 +6,7 @@ Related: [14-security-privacy-consent.md](14-security-privacy-consent.md), [16-c
 
 | ID | Assumption | If wrong |
 | --- | --- | --- |
+| A0 | Version 1 is text conversation only; voice is Version 2 | Reopen Module J only when the product owner starts Version 2 |
 | A1 | The first users are adults creating twins of themselves | Legacy UI moves earlier and needs counsel before any chat |
 | A2 | Sending text to Anthropic or OpenAI can be made lawful with notice and a processor contract | Block the provider and spike a local model before Phase 3 |
 | A3 | English and Bangla are the launch languages | Add the real language to the gold set before calling chat done |
@@ -27,6 +28,7 @@ Related: [14-security-privacy-consent.md](14-security-privacy-consent.md), [16-c
 6. Will you verify identity, or accept self-attestation for the MVP?
 7. Are paid plans required in the first year, or is this a private deployment?
 8. Who is the data fiduciary: a company, or an individual operator?
+9. When should Version 2 voice open? Default: after Version 1 text chat is in real use (assumed after Phase 6).
 
 ## Risks
 
@@ -39,7 +41,7 @@ Related: [14-security-privacy-consent.md](14-security-privacy-consent.md), [16-c
 | Hallucinated memories | False biography | Quote check, citations, abstention, human review |
 | Prompt injection in journals | Data leak or policy bypass | No tools, source wrapping, sentinel tests |
 | Weak legacy authorization | A relative builds a persona they should not | Draft status, dispute freeze, no staff browsing |
-| Voice cloning misuse | Impersonation fraud | Off by default. Living-subject consent only, and not in the MVP |
+| Voice cloning misuse | Impersonation fraud | Entire voice surface is Version 2. When opened: off by default, living-subject consent only, no legacy cloning without a separate design |
 | Fine-tune or long context as a shortcut | Cannot delete or cite | Rejected in [20-technical-decisions.md](20-technical-decisions.md) |
 | pgvector recall with filters | Missing evidence | Iterative scans, recall eval, raise `ef_search` |
 | Bangla quality | Style and retrieval fail the actual users | Gold set in Bangla before multilingual is marked done |

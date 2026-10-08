@@ -4,7 +4,7 @@ Related: [02-product-requirements.md](02-product-requirements.md), [14-security-
 
 ## Product
 
-Memora lets an authorized user construct an interactive AI representation of a real person from digital records: conversations, documents, journals, biographical notes, photos, and recordings. Other approved people can talk with that representation in text, and later by voice.
+Memora lets an authorized user construct an interactive AI representation of a real person from digital records: conversations, documents, journals, biographical notes, and later photos and recordings. Version 1 is **text conversation**. Voice interaction is planned for Version 2 after text chat is solid.
 
 The product has three scenarios.
 
@@ -16,7 +16,7 @@ The product has three scenarios.
 
 ## Experience principles
 
-1. The interface says this is an AI simulation on every conversation surface, including voice.
+1. The interface says this is an AI simulation on every conversation surface. When Version 2 adds voice, the same disclosure applies there.
 2. Statements about the person's life are grounded in reviewed sources, or they are declined.
 3. The simulation can sound like the documented person without pretending to be them.
 4. New chats with the AI are memories of the product, not memories of the person's life.
@@ -41,14 +41,14 @@ The simulation must not:
 - Follow instructions hidden inside an uploaded document.
 - Reveal another persona's data, or another participant's private content, because it appeared in the same prompt window.
 
-## Non-goals for the first release
+## Non-goals for Version 1
 
 - Proving psychological identity.
 - Automatic fine-tuning on a person's corpus.
-- Real-time voice and custom voice cloning.
+- Any voice interaction: microphone chat, TTS playback, duplex audio, or custom voice cloning (all Version 2).
 - Scraping social networks. Only user-supplied exports and lawful APIs the user connects are in scope.
 - Public directories of personas. Sharing is invite-only.
-- Clinical, legal, or financial advice in the person's voice.
+- Clinical, legal, or financial advice in the person's style.
 
 ## Emotional design
 

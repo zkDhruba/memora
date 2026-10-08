@@ -138,9 +138,11 @@ WebSocket is not used for text.
 
 `GET/POST /personas/:id/relationships`, `POST /relationships/:id/claims`, `POST /claims/:id/decision`.
 
-## Voice (Phase 5)
+## Voice (Version 2 — not in Version 1)
 
-`POST /personas/:id/conversations/:sessionId/audio` for batch. WebSocket `/api/v1/voice` for duplex, same cookie auth, after the text path is solid.
+Do not add these routes until Version 2 is opened.
+
+`POST /personas/:id/conversations/:sessionId/audio` for batch. WebSocket `/api/v1/voice` for duplex, same cookie auth, after the text path has been in production use.
 
 ## Admin
 

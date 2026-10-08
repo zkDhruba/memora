@@ -30,10 +30,10 @@ app/
       relationships/page.tsx
       chat/page.tsx
       chat/[sessionId]/page.tsx
-      voice/page.tsx         Phase 5
       calibration/page.tsx   Phase 4
       privacy/page.tsx
       members/page.tsx
+      # voice/page.tsx     Version 2 only — do not create in Version 1
     settings/page.tsx
   (admin)/
     admin/page.tsx           Phase 6
@@ -74,15 +74,15 @@ The composer stays usable on a failed stream and offers retry.
 
 Do not proxy file bytes through Next.js.
 
-## Audio (Phase 5)
+## Audio
 
-`MediaRecorder` for batch. A single play button for TTS, with a visible "Synthetic voice" label. Duplex mode uses one WebSocket and a stop control that is keyboard accessible.
+**Version 2 only.** Do not add `MediaRecorder`, TTS players, or voice routes in Version 1. When Version 2 opens: batch recording upload, a play button for stock TTS with a visible "Synthetic voice" label, then duplex over one WebSocket with a keyboard-accessible stop control.
 
 ## Components
 
 Shared: `DisclosureBanner`, `PersonaStatus`, `EmptyState`, `ErrorState`, `JobProgress`, `CitationList`, `ConfirmDestructive`, `AudienceBadge`.
 
-The disclosure banner is on every chat and voice view and is not dismissible.
+The disclosure banner is on every chat view and is not dismissible. The same banner will apply to voice views in Version 2.
 
 ## Accessibility
 
@@ -112,4 +112,4 @@ The disclosure banner is on every chat and voice view and is not dismissible.
 
 Landing → register → verify → dashboard → wizard → persona overview.
 
-Persona subnav: Overview, Library, Review, Memories, Personality, Chat, Privacy, Members. Relationships, Calibration, and Voice appear when the phase exists. Admin is a separate entry only for platform admins, visually distinct so it is not mistaken for persona content.
+Persona subnav: Overview, Library, Review, Memories, Personality, Chat, Privacy, Members. Relationships and Calibration appear when Phase 4 exists. Voice is Version 2 and must not appear in Version 1 navigation. Admin is a separate entry only for platform admins, visually distinct so it is not mistaken for persona content.

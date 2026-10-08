@@ -19,7 +19,7 @@ Versions and prices were checked on **8 October 2026**. Reconfirm before scaffol
 | Zod | Shared validation | Required | Low | None |
 | AWS SDK v3 | S3 API for MinIO and production buckets | Required | Low | Storage |
 | MinIO locally; S3-compatible in production | Original files and audio | Required | Low locally | Per GB |
-| Hosted Claude and OpenAI APIs | Chat, extraction, embeddings, later speech | Required | Low | Usage |
+| Hosted Claude and OpenAI APIs | Chat, extraction, embeddings | Required | Low | Usage |
 | Caddy | HTTPS reverse proxy | Production | Low | None |
 | Docker Compose | Local and single-server production | Required | Low | None |
 | GitHub Actions | CI | Required | Low | Free tier for small repos |
@@ -77,9 +77,9 @@ Do not add Redux, a second component kit, or a chat SDK.
 
 **Why not MVP:** Digital PDF, DOCX, and chat exports are solvable in Node. A second runtime doubles the deploy and the security boundary around personal data.
 
-**Trigger to add:** scanned documents, speaker diarization, or a local speech model with a quality gap the hosted API cannot close. One FastAPI process, called only by the worker, with no public ingress.
+**Trigger to add:** scanned documents in Version 1, or speaker diarization / a local speech model in Version 2 when hosted APIs are not enough. One FastAPI process, called only by the worker, with no public ingress.
 
-**Complexity:** medium. **Cost:** another container and RAM. **Simpler alternative:** hosted transcription and a Node PDF parser, which is the MVP.
+**Complexity:** medium. **Cost:** another container and RAM. **Simpler alternative for Version 1:** a Node PDF parser. Speech stays out of Version 1.
 
 ### LangChain JS and LangGraph JS
 
@@ -109,16 +109,23 @@ Not justified below the 100,000-user sketch, and not automatically then. See [16
 
 **Trigger:** a residency requirement the chosen API cannot meet, or a measured bill where GPU ownership is cheaper after evaluation quality matches. See decision 9 in [20-technical-decisions.md](20-technical-decisions.md).
 
-## Speech and vision (Phase 5)
+## Vision (Version 1 Phase 5)
 
-| Capability | MVP choice when the phase starts | Notes |
+| Capability | Choice when Phase 5 starts | Notes |
+| --- | --- | --- |
+| Vision | A short-context multimodal call on the allowlisted provider | One description per image, human confirmation before retrieval |
+
+## Speech (Version 2 only — do not implement in Version 1)
+
+| Capability | Planned choice when Version 2 opens | Notes |
 | --- | --- | --- |
 | Batch transcription | OpenAI `gpt-4o-mini-transcribe`, listed estimate **$0.003 / minute** on the pricing page | Whisper-compatible behavior is not required if this model is accurate on Bangla and English. Keep the interface swappable |
 | Legacy Whisper | `whisper-1` at **$0.006 / minute** | Fallback if quality is better |
-| Live transcription | `gpt-realtime-whisper` at **$0.017 / minute** | Phase 5b only |
+| Live transcription | `gpt-realtime-whisper` at **$0.017 / minute** | Version 2 duplex only |
 | TTS | `tts-1` at **$15 / 1M characters**; `tts-1-hd` at **$30 / 1M characters** | Stock voices, not cloning |
 | Duplex realtime | `gpt-realtime-2.1-mini` audio **$10 / $20 per 1M tokens** | Do not use the full realtime model until latency requires it. Cost is easy to underestimate |
-| Vision | A short-context multimodal call on the allowlisted provider | One description per image, human confirmation |
+
+Do not add speech SDK dependencies, microphone UI, or audio WebSocket routes to the Version 1 codebase. Reconfirm prices when Version 2 starts.
 
 Prices: OpenAI API pricing and model pages, retrieved 8 October 2026. The embedding model page lists `text-embedding-3-small` at **$0.02 / 1M tokens** and `text-embedding-3-large` at **$0.13 / 1M tokens**. The page layout also shows a "Batch API price" heading near those figures. Use $0.02 as the planning rate and reconfirm standard versus batch at implementation.
 
@@ -148,7 +155,7 @@ Provider data-use settings must disable training on customer content where the v
 | --- | --- | --- |
 | PostgreSQL | Users, consent, files metadata, messages, memories, chunks, embeddings, jobs status | File bytes, session rate counters |
 | Redis | BullMQ payloads (ids, not file bodies), rate limits, SSE fanout tokens if needed, short cache of persona cards | System of record |
-| Object storage | Originals, normalized text sidecars, TTS audio, quarantine | Permissions |
+| Object storage | Originals, normalized text sidecars, quarantine; TTS audio only in Version 2 | Permissions |
 | Browser | UI state, in-progress upload | Long-term secrets |
 
 Job payloads contain foreign keys. Workers load bytes from object storage.

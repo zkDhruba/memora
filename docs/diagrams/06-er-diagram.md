@@ -1,6 +1,6 @@
 # Entity relationship
 
-Candidate tables from the brief that do not appear here were merged or deferred. Voice profiles and evaluation runs are Phase 4–5 and are omitted from the MVP diagram.
+Candidate tables from the brief that do not appear here were merged or deferred. Evaluation runs are Phase 4. Voice profiles are Version 2. Both are omitted from the MVP diagram.
 
 ```mermaid
 erDiagram

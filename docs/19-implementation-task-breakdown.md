@@ -66,17 +66,16 @@ Ordered so that privacy and tenancy exist before features that move personal dat
 | 4.8 | Owner export |
 | 4.9 | Calibration page: compare reply to an excerpt without calling the excerpt the truth |
 
-## Phase 5
+## Phase 5 (images only)
 
 | ID | Task |
 | --- | --- |
 | 5.1 | Allow image upload, EXIF, no model call |
 | 5.2 | Vision description stored as unconfirmed |
-| 5.3 | Batch transcription into the conversation |
-| 5.4 | TTS of the assistant message with a synthetic label |
-| 5.5 | WebSocket duplex behind a flag, barge-in stops audio |
-| 5.6 | Cost probe documented |
-| 5.7 | Synthetic voice design only, default off, living subject consent |
+| 5.3 | Human confirm/reject caption; only confirmed text is retrievable |
+| 5.4 | Link a confirmed image description to a memory |
+
+Audio and video uploads remain rejected (`415`) in Version 1.
 
 ## Phase 6
 
@@ -90,6 +89,17 @@ Ordered so that privacy and tenancy exist before features that move personal dat
 | 6.6 | Revoke-consent UX that cancels jobs |
 | 6.7 | Runbook |
 
+## Version 2 — Voice (do not start in Version 1)
+
+| ID | Task |
+| --- | --- |
+| V2.1 | Batch recording upload → transcription → existing text chat path |
+| V2.2 | Stock TTS of the assistant message with a synthetic label |
+| V2.3 | Cost probe: dollars per voice minute documented before enablement |
+| V2.4 | WebSocket duplex behind a flag, barge-in stops audio |
+| V2.5 | Audio and video source ingestion that depends on transcription |
+| V2.6 | Synthetic voice design only, default off, living-subject consent |
+
 ## First coding session
 
-Start at task 1.1 and stop at 1.7 before any model key is added. Do not build the chat screen beyond the disclosure placeholder until 3.6 is tested.
+Start at task 1.1 and stop at 1.7 before any model key is added. Do not build the chat screen beyond the disclosure placeholder until 3.6 is tested. Do not scaffold voice routes, audio players, or speech provider adapters until Version 2 is opened.

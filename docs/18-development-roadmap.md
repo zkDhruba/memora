@@ -84,19 +84,19 @@ This phase **is the MVP**.
 
 **Done when:** gold set exists for at least one synthetic persona in English and one in Bangla.
 
-## Phase 5 — Multimodal and voice
+## Phase 5 — Images (Version 1 multimodal)
 
-**Objective:** photos and speech without impersonation by default.
+**Objective:** photos enter the knowledge base without speculative retrieval.
 
-**Features:** image store and confirmed captions, batch transcription, TTS playback, then WebSocket voice, then a gated consent design for synthetic voice. Legacy voice cloning stays off.
+**Features:** image store, EXIF metadata, confirmed captions, image-to-memory linking. No speech, no TTS, no conversational voice.
 
-**Depends on:** Phase 3. Can overlap Phase 4 only after chat is stable.
+**Depends on:** Phase 3. Can overlap Phase 4 only after text chat is stable.
 
-**Complexity:** L.
+**Complexity:** M.
 
-**Acceptance:** synthetic audio is labeled; transcription corrects into the same session; image speculation is not retrievable while unconfirmed; voice feature flag defaults off.
+**Acceptance:** image speculation is not retrievable while unconfirmed; audio and video uploads still return `415 UNSUPPORTED_MEDIA`.
 
-**Done when:** a measured cost per voice minute is written into the runbook.
+**Done when:** an owner can attach a confirmed photo description to a memory and search it in text chat.
 
 ## Phase 6 — Production hardening
 
@@ -112,6 +112,25 @@ This phase **is the MVP**.
 
 **Done when:** the single-server runbook is enough for someone other than the author to recover the database.
 
-## Explicitly later
+## Version 2 — Voice (next product version)
 
-Native mobile apps, public sharing links, fine-tuning, Kubernetes, a second vector database, multi-agent debate, and automatic provider switching.
+**Status:** held. Do not schedule engineering until Version 1 text conversation is in use and the product owner opens Version 2.
+
+**Objective:** speak with the simulation without implying the person is present or that a cloned voice is authentic.
+
+**Features (ordered):**
+
+1. Browser recording → batch transcription → same text chat path → optional stock TTS of the reply (labeled synthetic).
+2. WebSocket duplex audio, barge-in, shared session with the text transcript.
+3. Consented custom synthetic voice for a living subject only, off by default. Legacy voice cloning stays off until counsel and a separate design approve it.
+4. Audio and video source uploads that depend on transcription (voice notes, call recordings).
+
+**Depends on:** Version 1 Phases 3 and 6 at minimum (stable text chat, consent, disclosure, spend controls).
+
+**Acceptance:** every audio surface shows simulation disclosure; TTS and cloned audio are labeled synthetic; feature flags default off; a measured cost per voice minute is in the runbook before broad enablement.
+
+**Done when:** text and voice share one conversation session without mixing conversational audio into biographical memory.
+
+## Explicitly later (beyond Version 2)
+
+Native mobile apps, public sharing links, fine-tuning, Kubernetes, a second vector database, multi-agent debate, automatic provider switching, and deceased-person voice cloning.

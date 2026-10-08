@@ -1,6 +1,6 @@
 # Memora
 
-Memora is an AI digital-twin and personality-reconstruction platform. An authorized person supplies records of a real individual's life and communication. The system builds a clearly disclosed AI simulation that can converse in a documented style, retrieve evidence-linked memories, and respect per-person access limits.
+Memora is an AI digital-twin and personality-reconstruction platform. An authorized person supplies records of a real individual's life and communication. The system builds a clearly disclosed AI simulation that can converse **in text** in a documented style, retrieve evidence-linked memories, and respect per-person access limits. Voice is planned for Version 2, not Version 1.
 
 This repository currently contains the architecture and implementation plan. Application code has not been started.
 

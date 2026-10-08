@@ -48,8 +48,8 @@ Requirements use MoSCoW. MVP means Phases 1–3.
 | ING-1 | Upload TXT, MD, CSV, JSON, DOCX, PDF | MVP |
 | ING-2 | WhatsApp `.txt` export | MVP |
 | ING-3 | Telegram JSON, email (`.eml`), generic SMS CSV | Phase 2 stretch / Phase 4 if MVP slips |
-| ING-4 | JPEG, PNG, WebP stored with metadata; understanding later | Store in Phase 5; reject with a clear message before that |
-| ING-5 | MP3, WAV, M4A, MP4 stored; transcription in Phase 5 | Same |
+| ING-4 | JPEG, PNG, WebP stored with metadata; understanding later | Store and caption in Phase 5; reject with a clear message before that |
+| ING-5 | MP3, WAV, M4A, MP4 stored; transcription for knowledge or chat | Version 2; reject with `UNSUPPORTED_MEDIA` in Version 1 |
 | ING-6 | Malware scan, type check, size limit, checksum dedupe | MVP |
 | ING-7 | Source registry from file to chunk to memory | MVP |
 | ING-8 | Reprocess a file without duplicating approved memories blindly | MVP |
@@ -63,12 +63,12 @@ Requirements use MoSCoW. MVP means Phases 1–3.
 | AI-2 | Personality signals with evidence and uncertainty, held for review | MVP |
 | AI-3 | Biographical memories separate from conversational memories | MVP |
 | AI-4 | Hybrid retrieval scoped by persona and permission | MVP |
-| AI-5 | Streaming text chat with citations | MVP |
+| AI-5 | Streaming text chat with citations | MVP (primary product surface) |
 | AI-6 | Relationship-conditioned style after owner approval of the relationship | Phase 4 |
 | AI-7 | Contradiction queue | Phase 4 |
 | AI-8 | Image captions and photo search | Phase 5 |
-| AI-9 | Speech in, speech out, then duplex voice | Phase 5 |
-| AI-10 | Custom synthetic voice only after a verified consent workflow | Phase 5, gated |
+| AI-9 | Speech in, speech out, then duplex voice | Version 2 |
+| AI-10 | Custom synthetic voice only after a verified consent workflow | Version 2, gated |
 
 ### Governance
 
@@ -107,6 +107,6 @@ These are product rules. Counsel must map them to statute before launch. See [14
 5. Children are out of scope as persona subjects for the MVP. Do not create a persona whose subject is described as under 18.
 6. Consent withdrawal stops new processing and new external calls, and starts deletion of derived data for the withdrawn purpose.
 
-## Out of scope
+## Out of scope for Version 1
 
-Public personas, marketplace, mobile native apps, SMS gateways, automated scraping, multi-agent swarms, and on-prem GPU inference in the MVP.
+Public personas, marketplace, mobile native apps, SMS gateways, automated scraping, multi-agent swarms, on-prem GPU inference, and all voice interaction (STT, TTS, duplex, cloning). Voice is Version 2.

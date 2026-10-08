@@ -80,7 +80,7 @@ Generic JSON is pretty-printed to text and not walked for secrets. Telegram `res
 
 ### DOCX
 
-`mammoth` to Markdown. Styles are discarded. Embedded images stored as attachments in Phase 5; ignored in MVP with a count warning.
+`mammoth` to Markdown. Styles are discarded. Embedded images stored as attachments in Phase 5; ignored in MVP with a count warning. Audio attachments wait for Version 2.
 
 ### PDF
 
@@ -116,7 +116,8 @@ Phase 4–5, same columns. Messenger JSON from the user's download, not from a s
 
 ### Images, audio, video
 
-Accepted in Phase 5 only. Until then the API returns `415` with `UNSUPPORTED_MEDIA` so bytes are not stored "just in case."
+- **Images:** accepted in Version 1 Phase 5 only. Until then the API returns `415` with `UNSUPPORTED_MEDIA`.
+- **Audio and video:** Version 2 only (transcription-dependent). Version 1 always returns `415` with `UNSUPPORTED_MEDIA` so bytes are not stored "just in case."
 
 ## Participant identification
 

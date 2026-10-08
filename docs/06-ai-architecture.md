@@ -29,7 +29,7 @@ Ingestion is a job chain. Chat is a function.
 LlmPort.complete(request) -> text | stream
 LlmPort.completeJson(schema, request) -> typed object
 EmbeddingPort.embed(texts[]) -> vectors
-TranscriptionPort, SpeechPort  // Phase 5
+TranscriptionPort, SpeechPort  // Version 2 only — not defined in Version 1
 ```
 
 `LlmRequest` includes `personaId`, `purpose` (`chat`, `extract_memory`, `extract_style`, `title`), `provider`, `model`, `maxOutputTokens`, and `allowFallbackModels` limited to the same provider. The adapter refuses a provider that is not on the persona's consent record.
@@ -109,7 +109,7 @@ Batch extraction inputs by source message groups, not by mixing personas.
 - Trait or memory with confidence below 0.75, or any inferred trait: `pending_review`.
 - Conflict with an existing confirmed memory: `conflict`, excluded from retrieval.
 - Legacy persona activation: human, product-side.
-- Custom voice: human consent workflow, Phase 5.
+- Custom voice: human consent workflow in Version 2. Not in Version 1.
 
 ## Limits and cost controls
 

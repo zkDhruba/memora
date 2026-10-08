@@ -11,7 +11,7 @@ flowchart TB
   redis[(Redis)]
   s3[(S3-compatible storage)]
   clam[ClamAV]
-  provider[Allowlisted LLM and speech APIs]
+  provider[Allowlisted LLM APIs]
 
   browser --> caddy
   caddy --> web

@@ -146,19 +146,23 @@ Each decision has one default. Change it only when the stated condition is true.
 
 **Tradeoff:** server-to-server push for typing indicators is clumsier. Typing indicators are omitted.
 
-**Revisit when:** the client must send audio frames on the same channel. That is the voice socket, not the text path.
+**Revisit when:** Version 2 needs audio frames on the same channel. That becomes a separate voice socket, not a change to the text path.
 
-## 13. Voice transport in phases
+## 13. Voice is Version 2 (held)
 
-**Choice:** Phase 5a uses upload and playback. Phase 5b uses WebSocket audio to the API, which calls STT and TTS. WebRTC is not the default.
+**Choice for Version 1:** no voice. Text chat only. No STT, TTS, duplex socket, WebRTC, or voice-cloning work in the Version 1 backlog.
 
-**Alternative:** WebRTC from the start.
+**Choice when Version 2 opens:** V2a uses upload and playback. V2b uses WebSocket audio to the API, which calls STT and TTS. WebRTC is still not the default.
 
-**Why:** WebRTC solves peer media and NAT. This product relays through the server to a provider. A socket is enough and is easier to authenticate with the session cookie.
+**Alternative:** pull voice into Version 1, or start Version 2 with WebRTC.
 
-**Tradeoff:** higher latency than a media server optimized for RTP.
+**Why hold:** the product owner prioritized a solid conversational text experience first. Voice adds latency, cost, biometric/consent risk, and UI surface that would delay the MVP.
 
-**Revisit when:** measured time-to-first-audio stays above the product bar (propose 800 ms) after provider streaming is already in use, and a media server would actually remove the delay. Do not adopt WebRTC to look realtime.
+**Why WebSocket later, not WebRTC first:** WebRTC solves peer media and NAT. This product relays through the server to a provider. A socket is enough and is easier to authenticate with the session cookie.
+
+**Tradeoff:** Version 1 users cannot speak to the simulation. Duplex later may have higher latency than a media server optimized for RTP.
+
+**Revisit when:** Version 1 text chat is in use and the product owner opens Version 2. Within Version 2, revisit WebRTC only if measured time-to-first-audio stays above about 800 ms after provider streaming is already in use.
 
 ## 14. Relationship tables, not a graph database
 
@@ -209,3 +213,5 @@ Each decision has one default. Change it only when the stated condition is true.
 | Full text | `simple` for Bangla, `english` for English |
 | Email | SMTP provider in production, Mailpit locally |
 | Package manager | pnpm |
+| Conversation modality in Version 1 | Text only (SSE chat) |
+| Voice | Version 2 |

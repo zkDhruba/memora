@@ -18,7 +18,7 @@ These are assumptions, not measurements.
 | Input tokens per chat turn | 8,000 | 8,000 | 8,000 | 8,000 |
 | Output tokens per turn | 400 | 400 | 400 | 400 |
 | Turns per conversation | 8 | 8 | 6 | 6 |
-| Voice minutes per active user per month | 0 in MVP | 0 | 20 | 20 |
+| Voice minutes per active user per month | 0 in Version 1 | 0 | 0 until Version 2 | 0 until Version 2 |
 
 Concurrent chat users are assumed at about 5% of daily active users during a peak hour. The bottleneck is provider latency, not Node.
 
@@ -102,11 +102,11 @@ If 10,000 users chatted as hard as the 1,000-user base (15% active, 4 conversati
 | --- | --- | --- | --- |
 | First ingest embeddings | 100 personas * 2M tokens * $0.02 / 1M | **$4** | Negligible |
 | Extraction | Assume 0.5M input + 0.05M output tokens per persona once, Haiku rates | about **$8** once | Quote-locked, sampled |
-| Transcription | minutes * $0.003 | $0 until Phase 5 | `gpt-4o-mini-transcribe` listed estimate |
-| TTS | characters / 1e6 * $15 | A 500-character reply is $0.0075 | Phase 5 |
-| Live voice | $0.017 / minute STT plus TTS | 20 minutes * 100 users * $0.017 = $34 STT only | Easy to dwarf with realtime models |
+| Transcription | minutes * $0.003 | **$0 in Version 1** | Version 2: `gpt-4o-mini-transcribe` listed estimate |
+| TTS | characters / 1e6 * $15 | **$0 in Version 1** | Version 2: a 500-character reply is about $0.0075 |
+| Live voice | $0.017 / minute STT plus TTS | **$0 in Version 1** | Version 2 planning example: 20 minutes * 100 users * $0.017 = $34 STT only |
 
-Realtime audio at `gpt-realtime-2.1-mini` ($10 / $20 per million audio tokens) is **not** converted to a monthly figure here because the token-per-minute rate was not on the pricing page. Do not launch duplex voice without a measured tokens-per-minute trial. The full `gpt-realtime-2.1` audio rate is $32 / $64 per million tokens.
+Realtime audio at `gpt-realtime-2.1-mini` ($10 / $20 per million audio tokens) is **not** converted to a monthly figure here because the token-per-minute rate was not on the pricing page. Version 1 cost models ignore speech. Do not launch duplex voice in Version 2 without a measured tokens-per-minute trial. The full `gpt-realtime-2.1` audio rate is $32 / $64 per million tokens.
 
 ## Hosting floors
 
