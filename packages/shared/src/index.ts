@@ -8,6 +8,12 @@ export {
 export {
   registerBodySchema,
   loginBodySchema,
+  verifyEmailBodySchema,
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
   type RegisterBody,
   type LoginBody,
+  type VerifyEmailBody,
+  type ForgotPasswordBody,
+  type ResetPasswordBody,
 } from "./auth";

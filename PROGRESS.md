@@ -47,7 +47,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 2 — Identity and plans
 
 - [x] **1.3** Drizzle migrations: users, sessions, mfa, audit, plans, subscriptions, personas, memberships, consents (seed Free/Pro/Pro+)
-- [ ] **1.4** Register, verify email, login, reset, cookie session; Free subscription on signup
+- [x] **1.4** Register, verify email, login, reset, cookie session; Free subscription on signup
 - [ ] **1.5** TOTP MFA + recovery codes (step-up on delete)
 
 ### Bite 3 — PlanGuard and persona CRUD
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-12 | 1.4 | Argon2id auth: register/verify/login/logout/reset; HttpOnly cookie sessions; Free sub on signup; Mailpit OK |
 | 2026-10-12 | 1.3 | Drizzle schema + migration for identity/plans/personas/consents; seed Free/Pro/Pro+; migrate twice OK |
 | 2026-10-12 | 1.2 | Compose stack up: Postgres 18+pgvector, Redis 7, Silo (MinIO API), Mailpit, ClamAV; buckets + healthchecks verified |
 | 2026-10-12 | 1.1 | pnpm+Turborepo monorepo; Next 16 web, Nest 12 API, shared+db packages; `pnpm check` green |
@@ -272,6 +273,48 @@ docker exec memora-postgres psql -U memora -d memora \
 **Expect:** ten tables (`users` … `consents`); three plans with max owned **1 / 5 / 20**. Second migrate is a no-op. Second seed updates in place.
 
 **Fail if:** migrate errors on second run; plan rows missing or wrong limits; `pnpm --filter @memora/db typecheck` fails.
+
+### 1.4 — Auth (register → Mailpit → verify → login → /me)
+
+```bash
+pnpm deps:up
+pnpm db:migrate && pnpm db:seed
+pnpm --filter @memora/api dev   # http://localhost:4000
+```
+
+```bash
+API=http://localhost:4000/api/v1
+EMAIL="you@example.com"
+PASS='test-password-123'
+JAR=/tmp/memora.jar
+
+# Register → Mailpit gets verification mail
+curl -sS -X POST "$API/auth/register" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\",\"displayName\":\"You\"}"
+# → {"userId":"..."}
+# Open http://localhost:8025 — subject "Verify your Memora email"
+
+# Copy token from Mailpit body, then:
+curl -sS -X POST "$API/auth/verify-email" -H 'Content-Type: application/json' \
+  -d '{"token":"<TOKEN>"}'
+# → {"verified":true}
+
+curl -sS -c "$JAR" -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}"
+curl -sS -b "$JAR" "$API/me"
+# → emailVerified true, plan.planId "free"
+
+# Subscription row
+docker exec memora-postgres psql -U memora -d memora \
+  -c "SELECT plan_id, status FROM subscriptions ORDER BY created_at DESC LIMIT 1;"
+# → free | active
+```
+
+**Edge — bad password:** `POST /auth/login` with wrong password → `401 INVALID_CREDENTIALS` (same message for unknown email).
+
+**Edge — reset:** `POST /auth/password/forgot` → always `202`; Mailpit has reset mail; `POST /auth/password/reset` → `204` and old session cookie fails `/me` with `401`.
+
+**Fail if:** no Mailpit message after register; `/me` missing `plan.planId=free`; cookie not HttpOnly.
 
 ---
 

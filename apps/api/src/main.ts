@@ -1,17 +1,24 @@
+import "./load-env";
 import { NestFactory } from "@nestjs/core";
+import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { env } from "./config/env";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix("api/v1");
+  app.use(cookieParser());
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
+    origin: env.webOrigin,
     credentials: true,
   });
-  const port = Number(process.env.API_PORT ?? 4000);
-  await app.listen(port);
+  app.getHttpAdapter().getInstance().set("trust proxy", 1);
+
+  await app.listen(env.apiPort);
   // eslint-disable-next-line no-console
-  console.log(`Memora API listening on http://localhost:${port}/api/v1`);
+  console.log(
+    `Memora API listening on http://localhost:${env.apiPort}/api/v1`,
+  );
 }
 
 void bootstrap();

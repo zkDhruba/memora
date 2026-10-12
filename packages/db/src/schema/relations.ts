@@ -1,0 +1,99 @@
+import { relations } from "drizzle-orm";
+import { auditLogs } from "./audit";
+import { consents } from "./consents";
+import { mfaFactors, recoveryCodes } from "./mfa";
+import { personaMemberships, personas } from "./personas";
+import { plans, subscriptions } from "./plans";
+import { sessions } from "./sessions";
+import { users } from "./users";
+
+export const usersRelations = relations(users, ({ many, one }) => ({
+  sessions: many(sessions),
+  mfaFactors: many(mfaFactors),
+  recoveryCodes: many(recoveryCodes),
+  subscription: one(subscriptions, {
+    fields: [users.id],
+    references: [subscriptions.userId],
+  }),
+  memberships: many(personaMemberships),
+  createdPersonas: many(personas),
+  auditLogs: many(auditLogs),
+  consents: many(consents),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+  plan: one(plans, {
+    fields: [subscriptions.planId],
+    references: [plans.id],
+  }),
+}));
+
+export const plansRelations = relations(plans, ({ many }) => ({
+  subscriptions: many(subscriptions),
+}));
+
+export const personasRelations = relations(personas, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [personas.createdByUserId],
+    references: [users.id],
+  }),
+  memberships: many(personaMemberships),
+  consents: many(consents),
+}));
+
+export const personaMembershipsRelations = relations(
+  personaMemberships,
+  ({ one }) => ({
+    persona: one(personas, {
+      fields: [personaMemberships.personaId],
+      references: [personas.id],
+    }),
+    user: one(users, {
+      fields: [personaMemberships.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const consentsRelations = relations(consents, ({ one }) => ({
+  persona: one(personas, {
+    fields: [consents.personaId],
+    references: [personas.id],
+  }),
+  user: one(users, {
+    fields: [consents.userId],
+    references: [users.id],
+  }),
+}));
+
+export const mfaFactorsRelations = relations(mfaFactors, ({ one }) => ({
+  user: one(users, {
+    fields: [mfaFactors.userId],
+    references: [users.id],
+  }),
+}));
+
+export const recoveryCodesRelations = relations(recoveryCodes, ({ one }) => ({
+  user: one(users, {
+    fields: [recoveryCodes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  actor: one(users, {
+    fields: [auditLogs.actorUserId],
+    references: [users.id],
+  }),
+}));
