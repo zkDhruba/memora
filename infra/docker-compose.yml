@@ -1,0 +1,124 @@
+# Local dependencies only. Next.js and NestJS run on the host (pnpm dev).
+# Usage (from repo root):
+#   pnpm deps:up
+#   pnpm deps:ps
+#   pnpm deps:down
+
+name: memora
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: memora-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: memora
+      POSTGRES_PASSWORD: memora
+      POSTGRES_DB: memora
+    ports:
+      - "5432:5432"
+    volumes:
+      # Postgres 18+ images expect the mount at /var/lib/postgresql (not .../data).
+      - memora_pg_data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memora -d memora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: memora-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - memora_redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # S3-compatible object store (pgsty/silo — MinIO API drop-in; docker.io/minio/* removed).
+  minio:
+    image: pgsty/silo:latest
+    container_name: memora-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: memora
+      MINIO_ROOT_PASSWORD: memoradevpass
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - memora_minio_data:/data
+    healthcheck:
+      test: ["CMD", "silo", "healthcheck", "ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # Creates quarantine + clean buckets once the S3 API is up.
+  minio-init:
+    image: pgsty/mc:latest
+    container_name: memora-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      set -e;
+      echo 'Waiting for object store...';
+      i=0;
+      until mc alias set local http://minio:9000 memora memoradevpass 2>/dev/null; do
+        i=$$((i+1));
+        if [ $$i -gt 60 ]; then echo 'Object store not ready'; exit 1; fi;
+        sleep 2;
+      done;
+      mc mb --ignore-existing local/memora-quarantine;
+      mc mb --ignore-existing local/memora-clean;
+      echo 'Buckets ready: memora-quarantine, memora-clean';
+      "
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: memora-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clamav:
+    image: clamav/clamav:1.4
+    container_name: memora-clamav
+    restart: unless-stopped
+    ports:
+      - "3310:3310"
+    volumes:
+      - memora_clamav_data:/var/lib/clamav
+    # First start downloads virus definitions — can take several minutes.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 40
+      start_period: 400s
+
+volumes:
+  memora_pg_data:
+  memora_redis_data:
+  memora_minio_data:
+  memora_clamav_data:

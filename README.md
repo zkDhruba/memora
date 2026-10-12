@@ -55,7 +55,7 @@ pnpm check          # build + typecheck
 pnpm dev            # web :3000 + api :4000 (after install)
 ```
 
-Track progress in [PROGRESS.md](PROGRESS.md).
+Track progress in [PROGRESS.md](PROGRESS.md). **Golden rule:** every finished task includes a **How to test** section (commands + expected result) in chat and under “How to test completed tasks” in that file.
 
 ## Status
 

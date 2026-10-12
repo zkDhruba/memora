@@ -13,7 +13,12 @@
     "check": "pnpm build && pnpm typecheck",
     "build:packages": "turbo run build --filter=@memora/shared --filter=@memora/db",
     "test": "turbo run test",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "deps:up": "docker compose -f infra/docker-compose.yml up -d",
+    "deps:down": "docker compose -f infra/docker-compose.yml down",
+    "deps:ps": "docker compose -f infra/docker-compose.yml ps",
+    "deps:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "deps:reset": "docker compose -f infra/docker-compose.yml down -v"
   },
   "devDependencies": {
     "turbo": "^2.5.4",

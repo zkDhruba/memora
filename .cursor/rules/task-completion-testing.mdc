@@ -1,0 +1,15 @@
+---
+description: After every completed Memora task, provide explicit how-to-test steps
+alwaysApply: true
+---
+
+# Golden rule — test every completed task
+
+When you finish any task from `PROGRESS.md` / the implementation backlog:
+
+1. Mark the task done in `PROGRESS.md` and add a log line.
+2. **Always** end your reply with a **How to test** section for that task.
+3. Prefer concrete commands the user can run locally (shell, curl, browser URL, expected output).
+4. Include at least one happy path and, when relevant, one failure/edge case.
+5. If automated tests exist, name the command (`pnpm test`, Playwright, etc.). If not yet, give manual steps and note what automated coverage should come later.
+6. Do not say "done" without telling the user how to verify it themselves.

@@ -178,7 +178,7 @@ Each decision has one default. Change it only when the stated condition is true.
 
 ## 15. S3-compatible storage
 
-**Choice:** MinIO in development. Managed S3-compatible storage in production (Hetzner Object Storage or AWS S3). Same AWS SDK.
+**Choice:** S3-compatible object store in development via Compose (`pgsty/silo` — MinIO API drop-in after `minio/minio` left Docker Hub). Managed S3-compatible storage in production (Hetzner Object Storage or AWS S3). Same AWS SDK.
 
 **Alternative:** files on the VM disk.
 

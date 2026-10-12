@@ -5,10 +5,11 @@ Use this file to track what is done. When you finish a feature:
 1. Change `[ ]` to `[x]`.
 2. Set **Status** for that bite/phase if the whole bite is done.
 3. Add a one-line note under **Log** at the bottom (date + what shipped).
+4. **Golden rule:** every completed task must include a **How to test** block (commands + expected result). The agent must give you those steps in chat; also keep a short copy under [How to test completed tasks](#how-to-test-completed-tasks) below.
 
 Source of truth for task detail: [docs/19-implementation-task-breakdown.md](docs/19-implementation-task-breakdown.md).  
 Roadmap: [docs/18-development-roadmap.md](docs/18-development-roadmap.md).  
-Execution overview: ask the agent or see the chat execution plan (Phases 0–6).
+Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 **MVP ships when Phase 3 is complete.** Voice is Version 2 — do not track it here.
 
@@ -41,7 +42,7 @@ Execution overview: ask the agent or see the chat execution plan (Phases 0–6).
 ### Bite 1 — Repo and infra
 
 - [x] **1.1** Monorepo: pnpm, Turborepo, `apps/web`, `apps/api`, `packages/db`, `packages/shared`
-- [ ] **1.2** Docker Compose: Postgres+pgvector, Redis, MinIO, Mailpit, ClamAV
+- [x] **1.2** Docker Compose: Postgres+pgvector, Redis, MinIO, Mailpit, ClamAV
 
 ### Bite 2 — Identity and plans
 
@@ -188,7 +189,71 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-12 | 1.2 | Compose stack up: Postgres 18+pgvector, Redis 7, Silo (MinIO API), Mailpit, ClamAV; buckets + healthchecks verified |
 | 2026-10-12 | 1.1 | pnpm+Turborepo monorepo; Next 16 web, Nest 12 API, shared+db packages; `pnpm check` green |
+
+---
+
+## How to test completed tasks
+
+### 1.1 — Monorepo scaffold
+
+```bash
+# From repo root
+corepack enable
+pnpm install
+pnpm check
+```
+
+**Expect:** Turbo builds `@memora/shared`, `@memora/db`, `@memora/api`, `@memora/web` and typecheck all pass with exit code 0.
+
+```bash
+# Optional — run apps (separate terminals)
+pnpm --filter @memora/api dev
+# → http://localhost:4000/api/v1/health/live  →  {"status":"ok", ...}
+
+pnpm --filter @memora/web dev
+# → http://localhost:3000  →  landing page mentioning Memora and plan ids
+```
+
+**Fail if:** `pnpm check` errors; health URL is not JSON `status: ok`; home page does not load.
+
+### 1.2 — Docker Compose dependencies
+
+```bash
+# From repo root (Docker required)
+pnpm deps:up
+pnpm deps:ps
+```
+
+**Expect:** `postgres`, `redis`, `minio`, `mailpit`, `clamav` show `healthy` (ClamAV may take a few minutes on first boot).
+
+```bash
+# Postgres + pgvector
+docker exec memora-postgres psql -U memora -d memora -c "SELECT extname FROM pg_extension WHERE extname='vector';"
+# → vector
+
+# Redis
+docker exec memora-redis redis-cli ping
+# → PONG
+
+# Object store (S3 / Silo)
+curl -sf http://127.0.0.1:9000/minio/health/live && echo OK
+# → OK
+
+# Mailpit UI API
+curl -sf http://127.0.0.1:8025/api/v1/info
+# → JSON with Version
+
+# Buckets (quarantine + clean)
+docker run --rm --network memora_default --entrypoint /bin/sh pgsty/mc:latest \
+  -c 'mc alias set local http://minio:9000 memora memoradevpass && mc ls local/'
+# → memora-clean/ and memora-quarantine/
+```
+
+**Fail if:** any service stays unhealthy; `vector` extension missing; health/live or Mailpit API fail; buckets missing.
+
+**Note:** Local object store image is `pgsty/silo` (MinIO S3 API). Official `minio/minio` was removed from Docker Hub in 2026; `.env` S3 settings are unchanged.
 
 ---
 
@@ -199,3 +264,5 @@ After finishing a feature, ask:
 > Update PROGRESS.md: mark task X.Y done and add a log line for today.
 
 Or edit this file yourself: `[ ]` → `[x]`, update the phase **Status**, append a log row.
+
+The agent must always reply with **How to test** for that task (golden rule).
