@@ -59,6 +59,8 @@ Requirements use MoSCoW. MVP means Phases 1–3.
 | PLAN-6 | Payment provider integration | Later (admin can assign plans until then) |
 | PLAN-7 | Conversational chat memory retention is plan-scoped: Free **100**, Pro **1,000**, Pro+ **10,000** messages (defaults) | MVP |
 | PLAN-8 | Retention applies only to Memora chat recall, never to biographical knowledge from fed sources | MVP |
+| PLAN-9 | Daily sent-text cap: Free **25**, Pro **100**, Pro+ **unlimited** | MVP |
+| PLAN-10 | Daily cap counts user chat sends across all personas; assistant replies do not count | MVP |
 
 Details and downgrade defaults: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
 

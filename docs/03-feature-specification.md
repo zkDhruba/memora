@@ -86,14 +86,15 @@ Review actions: confirm, correct, reject, annotate. Confirmed items become retri
 
 **MVP** without payment provider:
 
-| Plan | Max owned personas | Chat memory retention |
-| --- | --- | --- |
-| Free | 1 | Last **100** messages |
-| Pro | 5 | Last **1,000** messages |
-| Pro+ | 20 | Last **10,000** messages |
+| Plan | Max owned personas | Chat memory retention | Sent texts / day |
+| --- | --- | --- | --- |
+| Free | 1 | Last **100** messages | **25** |
+| Pro | 5 | Last **1,000** messages | **100** |
+| Pro+ | 20 | Last **10,000** messages | **Unlimited** |
 
 - New accounts start on Free.
-- Account → Plan shows current plan, `owned / max`, chat memory window, and upgrade copy.
+- Account → Plan shows current plan, `owned / max`, chat memory window, daily send allowance, and upgrade copy.
+- At the daily send cap, chat send returns `429 PLAN_LIMIT_CHAT_DAY` and the composer shows an upgrade CTA.
 - Admin can change a user’s plan until billing exists.
 - Chat retention limits only what the simulation recalls from prior **product chats**. Uploaded life records are unaffected.
 - Further limits (storage, tokens, seats, feature flags) are reserved in the plan catalog and decided later.

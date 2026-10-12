@@ -109,7 +109,7 @@ The disclosure banner is on every chat view and is not dismissible. The same ban
 | Chat hub | If user has personas: persona switcher. If none: CTA to create (or upgrade if at cap with zero — should not happen) | — |
 | Chat session | Suggested prompts that do not invent facts, such as "What is in the biography?" | Abstention and provider failure are different copy |
 | Legacy draft | "Conversations stay off until you finish the authorization note" | — |
-| Plan | Current Free / Pro / Pro+, persona quota, and chat memory window (e.g. last 100 messages) | — |
+| Plan | Current Free / Pro / Pro+, persona quota, chat memory window, and daily send allowance (e.g. 25 texts/day) | — |
 
 ## Navigation
 

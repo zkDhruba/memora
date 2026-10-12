@@ -13,7 +13,7 @@ Ordered so that privacy and tenancy exist before features that move personal dat
 | 1.3 | Drizzle migrations: users, sessions, mfa, audit, plans, subscriptions, personas, memberships, consents | Migration applies twice without error; seed free/pro/pro_plus |
 | 1.4 | Argon2id register, verify, login, reset, cookie session; create `subscriptions` row on `free` | Mailpit receives mail |
 | 1.5 | TOTP and recovery codes | Step-up required for delete |
-| 1.6 | `PlanGuard` + `GET /me/plan`; enforce max owned personas 1 / 5 / 20 and expose `maxChatMemoryMessages` 100 / 1000 / 10000 | Second create on Free returns `PLAN_LIMIT_PERSONAS`; plan payload includes chat memory cap |
+| 1.6 | `PlanGuard` + `GET /me/plan`; enforce max owned personas 1 / 5 / 20; expose `maxChatMemoryMessages` 100 / 1000 / 10000 and `maxChatMessagesPerDay` 25 / 100 / null | Second create on Free returns `PLAN_LIMIT_PERSONAS`; plan payload includes memory and daily send caps |
 | 1.7 | Persona CRUD API and UI (create wizard, list, update, soft delete), self attestation, consent rows | Persona stays draft until consent; listed on dashboard |
 | 1.8 | Chat hub + persona switcher: new persona appears without publish | Playwright: create → open `/chat` → see persona |
 | 1.9 | Persona membership checks and 404 for strangers | Integration test |
@@ -52,7 +52,7 @@ Ordered so that privacy and tenancy exist before features that move personal dat
 | 3.9 | Citations and abstention rewrite | Must-abstain fixture |
 | 3.10 | Conversational memory writer | Invisible to biographical search |
 | 3.10b | Apply plan chat-memory window to recent turns + conversational retrieval | Free fixture: message 101 not in model context; biographical memory still retrieved |
-| 3.11 | Quotas and usage rows | 429 when exceeded |
+| 3.11 | Daily send quota (Redis counter) + usage rows; Free 26th send rejected | `429 PLAN_LIMIT_CHAT_DAY`; Pro+ unlimited |
 | 3.12 | Playwright happy path with fake LLM | CI |
 | 3.13 | Staging deploy on one VM, spend alert | Documented env |
 

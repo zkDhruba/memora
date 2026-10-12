@@ -42,13 +42,13 @@ MVP enforces the catalog and default every new account to `free`. Assigning `pro
 
 ## Plan catalog (locked numbers)
 
-| Plan id | Display | Max owned personas | Chat memory retention (messages) | Notes |
-| --- | --- | --- | --- | --- |
-| `free` | Free | **1** | **100** | Default for new accounts |
-| `pro` | Pro | **5** | **1,000** | Default until you change it |
-| `pro_plus` | Pro+ | **20** | **10,000** | Default until you change it |
+| Plan id | Display | Max owned personas | Chat memory retention | Sent texts / day | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `free` | Free | **1** | **100** | **25** | Default for new accounts |
+| `pro` | Pro | **5** | **1,000** | **100** | |
+| `pro_plus` | Pro+ | **20** | **10,000** | **Unlimited** (`null`) | |
 
-Chat memory retention is defined in the next section. Persona caps and retention are independent limits on the same plan.
+Chat memory retention and daily send caps are defined below. All three limit families are independent on the same plan.
 
 Seed `limits` example:
 
@@ -56,14 +56,14 @@ Seed `limits` example:
 {
   "maxOwnedPersonas": 5,
   "maxChatMemoryMessages": 1000,
+  "maxChatMessagesPerDay": 100,
   "maxMembersPerPersona": null,
   "maxUploadMbPerMonth": null,
-  "maxChatTokensPerDay": null,
   "features": { "legacyScenario": false, "export": false }
 }
 ```
 
-`null` means unlimited / not enforced yet. MVP **must** enforce `maxOwnedPersonas` and `maxChatMemoryMessages`.
+`null` means unlimited / not enforced. MVP **must** enforce `maxOwnedPersonas`, `maxChatMemoryMessages`, and `maxChatMessagesPerDay` (where non-null).
 
 ## Chat memory retention by plan
 
@@ -106,6 +106,39 @@ Exact Pro / Pro+ numbers are planning defaults. Free **100** matches your stated
 - Settings → Plan: “Chat memory: last 100 messages (Free)” with upgrade CTA.
 - If the model cannot recall something outside the window: normal abstention / “not in our recent chats,” never invent it.
 - Do not imply Free users’ uploads are forgotten — clarify “conversation memory” vs “life records you uploaded.”
+
+## Daily sent-text limit by plan
+
+Caps how many **user** chat messages an account may send per calendar day. This is a usage quota, separate from memory retention.
+
+### Locked numbers
+
+| Plan | `maxChatMessagesPerDay` |
+| --- | --- |
+| Free | **25** |
+| Pro | **100** |
+| Pro+ | **`null` (unlimited)** |
+
+### Unit and scope
+
+- **Unit:** one count = one successful `POST .../messages` from the user (the human’s text turn). Assistant replies do not count.
+- **Day:** UTC calendar day unless product later picks the user’s `time_zone` from the profile. Document the choice in the UI (“resets at 00:00 UTC”).
+- **Scope:** across **all** personas for that account (one Free user gets 25 texts total per day, not 25 per persona).
+- **Whose plan:** the **sending user’s** subscription.
+
+### Runtime behavior
+
+1. Before accepting a chat send, `PlanGuard.assertCanSendChatMessage(userId)` loads today’s count from Redis (preferred) or `usage_records` / a small counter table.
+2. If at cap → `429 PLAN_LIMIT_CHAT_DAY` with `{ plan, maxChatMessagesPerDay, usedToday, resetsAt }`.
+3. Pro+ (`null`) skips the check.
+4. Failed provider calls after the user message was persisted still count (the user spent a turn). Optional later: do not count if insert fails before stream starts.
+5. Voice (Version 2) should use the same daily budget or a separate key — decide when Version 2 opens; until then text only.
+
+### UX
+
+- Composer shows remaining texts on Free/Pro when low (e.g. “3 of 25 left today”).
+- At cap: disable send + upgrade CTA; do not silently drop the message.
+- Settings → Plan lists daily send allowance next to memory and persona caps.
 
 ## Persona CRUD (user app)
 
@@ -197,8 +230,9 @@ There is **no** separate “publish to chat” toggle. Create = available in cha
 | Checkpoint | Error |
 | --- | --- |
 | `POST /personas` when owned count ≥ plan max | `403 PLAN_LIMIT_PERSONAS` with `{ plan, maxOwnedPersonas, currentOwned }` |
-| Upgrade / downgrade | Update `subscriptions`; create checks use the new plan immediately |
-| Admin override | Platform admin may set `subscriptions.override_max_personas` for support cases (null = use plan) |
+| `POST .../messages` when daily send count ≥ plan max | `429 PLAN_LIMIT_CHAT_DAY` with `{ plan, maxChatMessagesPerDay, usedToday, resetsAt }` |
+| Upgrade / downgrade | Update `subscriptions`; create and send checks use the new plan immediately |
+| Admin override | Platform admin may set `subscriptions.override_max_personas` for support cases (null = use plan). Optional later: `override_max_chat_messages_per_day` |
 
 All future limits (upload size, tokens, etc.) register in the same `PlanGuard` so UI can call `GET /me/plan` and disable buttons consistently.
 
@@ -207,7 +241,7 @@ All future limits (upload size, tokens, etc.) register in the same `PlanGuard` s
 | Surface | Behavior |
 | --- | --- |
 | Dashboard | Persona cards, create button (disabled with upgrade CTA when at cap), plan badge |
-| Account → Plan | Current plan, owned count / max, placeholder for future limits, upgrade copy |
+| Account → Plan | Current plan, owned count / max, chat memory window, daily send allowance, upgrade copy |
 | Chat | Persona switcher: all accessible personas; empty state if none |
 | Admin | View/change user plan; optional override; no persona content |
 
@@ -215,10 +249,11 @@ All future limits (upload size, tokens, etc.) register in the same `PlanGuard` s
 
 Documented so engineering does not invent them:
 
-1. Exact feature matrix beyond persona count and chat memory (export, legacy, member seats, storage, tokens).
+1. Exact feature matrix beyond persona count, chat memory, and daily sends (export, legacy, member seats, storage, tokens).
 2. Payment provider and billing country.
 3. Whether Pro+ is the top tier or more tiers follow.
 4. Whether soft-deleted personas should free the slot immediately (current default: **no**).
 5. Whether participants on many personas need a plan at all (current default: **no plan required to be invited**).
 6. Confirm Pro **1,000** / Pro+ **10,000** chat-memory defaults (Free **100** is locked to your intent unless you change it).
 7. Whether chat history UI still shows messages outside the model’s memory window (current default: **yes**).
+8. Daily send day boundary: UTC (default) vs user time zone.

@@ -11,7 +11,7 @@ Related: [14-security-privacy-consent.md](14-security-privacy-consent.md), [16-c
 | A2 | Sending text to Anthropic or OpenAI can be made lawful with notice and a processor contract | Block the provider and spike a local model before Phase 3 |
 | A3 | English and Bangla are the launch languages | Add the real language to the gold set before calling chat done |
 | A4 | One owner per persona is enough | Add transfer before account deletion ships to the public |
-| A11 | Plan caps: Free 1, Pro 5, Pro+ 20 owned personas; chat memory Free 100 / Pro 1,000 / Pro+ 10,000 messages; further limits TBD | Update `plans.limits` seed; do not hard-code caps outside PlanGuard |
+| A11 | Plan caps: personas 1/5/20; chat memory 100/1,000/10,000; daily sends 25/100/unlimited; further limits TBD | Update `plans.limits` seed; do not hard-code caps outside PlanGuard |
 | A13 | Chat retention uses the **chatting user’s** plan, not the persona owner’s | Switch to owner’s plan if product prefers |
 | A12 | Soft-deleted personas still count toward the create cap until purge | If product wants immediate slot free on soft delete, change membership doc and tests |
 | A5 | Families will accept abstention more than invention | Revisit copy, not the abstention rule |
@@ -26,16 +26,17 @@ Related: [14-security-privacy-consent.md](14-security-privacy-consent.md), [16-c
 1. Is Memora the public name?
 2. Which provider should be the default in the consent screen, Anthropic or OpenAI?
 3. Should managers see visitors' conversational memories? The plan says no.
-4. What is the default daily token quota per persona?
+4. Any extra token budget beyond the locked daily send caps (Free 25 / Pro 100 / Pro+ unlimited messages)?
 5. Is legacy (Scenario B) a launch feature or a later one? The plan builds the columns early and the workflow in Phase 4.
 6. Will you verify identity, or accept self-attestation for the MVP?
 7. Are paid plans required in the first year, or is this a private deployment?
 8. Who is the data fiduciary: a company, or an individual operator?
 9. When should Version 2 voice open? Default: after Version 1 text chat is in real use (assumed after Phase 6).
-10. What other Free / Pro / Pro+ restrictions apply beyond persona count and chat memory? (storage, tokens, members, export, legacy…)
+10. What other Free / Pro / Pro+ restrictions apply beyond persona count, chat memory, and daily sends? (storage, members, export, legacy…)
 11. Payment provider and whether admin-assigned plans are enough until billing ships.
 12. Confirm Pro 1,000 and Pro+ 10,000 chat-memory defaults, or set your own numbers.
 13. Should older chat messages stay visible in history after they fall out of the model’s memory window? (Default: yes, visible to the user, excluded from the model.)
+14. Daily send reset: UTC (default) vs user profile time zone.
 
 ## Risks
 

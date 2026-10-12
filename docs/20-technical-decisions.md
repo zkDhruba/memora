@@ -217,6 +217,7 @@ Each decision has one default. Change it only when the stated condition is true.
 | Voice | Version 2 |
 | Account plans | `free` / `pro` / `pro_plus` with max owned personas 1 / 5 / 20 |
 | Chat memory by plan | Free 100 / Pro 1,000 / Pro+ 10,000 messages (user↔persona); conversational only |
+| Daily sent texts by plan | Free 25 / Pro 100 / Pro+ unlimited; user messages only; all personas |
 | Plan enforcement | Single `PlanGuard` + `plans.limits` JSONB for future rules |
 | Persona → chat | Create lists persona in Chat immediately; no publish step |
 | Data feeding | Anytime, additive; new sources accumulate; no corpus wipe on new upload |

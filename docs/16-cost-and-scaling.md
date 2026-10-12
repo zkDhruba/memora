@@ -162,7 +162,9 @@ OpenAI's note that fine-tuning is winding down for new users removes "we'll trai
 
 Without quotas the base case is the product risk.
 
-- Daily chat tokens per persona, default sized for a family, not a public bot.
+- Daily **sent text** caps by plan: Free **25**, Pro **100**, Pro+ **unlimited** (account-wide). See [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+- Conversational memory windows by plan: Free 100 / Pro 1,000 / Pro+ 10,000 messages.
+- Owned persona caps: Free 1 / Pro 5 / Pro+ 20.
 - Embedding cap per import.
-- Owner-visible usage page, even a plain table.
+- Owner-visible usage / plan page.
 - Alert when the project daily spend crosses a configured amount.

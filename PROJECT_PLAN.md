@@ -61,5 +61,5 @@ Recorded in [docs/21-risks-and-open-questions.md](docs/21-risks-and-open-questio
 - One persona belongs to one owning account, with additional members by explicit grant.
 - Chat exports do not authorize exposing other participants' private messages to new people.
 - Conversation means text until Version 2.
-- New accounts are Free (1 owned persona; last **100** chat messages remembered). Pro: 5 personas / **1,000** messages. Pro+: 20 / **10,000**. Further plan rules TBD. Retention is conversational only — uploaded life data is not wiped by this cap.
+- New accounts are Free (1 owned persona; last **100** chat messages remembered; **25** sends/day). Pro: 5 / **1,000** memory / **100** sends/day. Pro+: 20 / **10,000** memory / **unlimited** sends. Further plan rules TBD. Memory retention is conversational only — uploaded life data is not wiped by that cap.
 - Personas may be fed more data at any time; new sources accumulate and do not replace prior confirmed knowledge.

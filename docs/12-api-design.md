@@ -61,7 +61,7 @@ Login failure case: same message for unknown email and bad password. Lockout aft
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/me` | Profile, platform role, and embedded plan summary |
-| GET | `/me/plan` | `{ planId, displayName, limits, ownedPersonaCount, maxOwnedPersonas, maxChatMemoryMessages, overLimit }` |
+| GET | `/me/plan` | `{ planId, displayName, limits, ownedPersonaCount, maxOwnedPersonas, maxChatMemoryMessages, maxChatMessagesPerDay, chatMessagesUsedToday, chatMessagesResetsAt, overLimit }` |
 | PATCH | `/me` | `{ displayName, locale, timeZone }` |
 | DELETE | `/me` | `{ password, totp }` queues erasure |
 
@@ -140,7 +140,7 @@ Participants listing memories receive only confirmed rows in their audience, wit
 
 SSE events: `token`, `citation`, `done`, `error`. Heartbeat comment every 15 seconds. If the client disconnects, the server still finishes persistence when possible and stops spending output tokens by aborting the provider stream.
 
-Failure: persona not ready `422 PERSONA_NOT_READY`; cap exceeded `429 QUOTA`; provider down `503`.
+Failure: persona not ready `422 PERSONA_NOT_READY`; daily send cap `429 PLAN_LIMIT_CHAT_DAY`; other usage caps `429 QUOTA`; provider down `503`.
 
 WebSocket is not used for text.
 

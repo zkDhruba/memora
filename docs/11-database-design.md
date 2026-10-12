@@ -39,7 +39,9 @@ RLS will not express "audience = family." That stays in the repository where the
 
 See [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
 
-**plans** — seed catalog, not user-editable in MVP. `id` (`free`, `pro`, `pro_plus`), `display_name`, `limits` jsonb (must include `maxOwnedPersonas`: 1 / 5 / 20 and `maxChatMemoryMessages`: 100 / 1000 / 10000), `sort_order`, `active`.
+**plans** — seed catalog, not user-editable in MVP. `id` (`free`, `pro`, `pro_plus`), `display_name`, `limits` jsonb (must include `maxOwnedPersonas`: 1 / 5 / 20, `maxChatMemoryMessages`: 100 / 1000 / 10000, and `maxChatMessagesPerDay`: 25 / 100 / null), `sort_order`, `active`.
+
+Daily send counters may live in Redis (`chat_send:{userId}:{yyyyMMdd}`) with optional mirror rows in `usage_records` for auditing.
 
 **subscriptions** — `user_id` PK/FK, `plan_id` FK, `status` (`active`, `past_due`, `canceled` — only `active` matters until billing), `override_max_personas` int null (admin support), `current_period_end` null until billing, `updated_at`. Every user gets a row on registration pointing at `free`.
 
