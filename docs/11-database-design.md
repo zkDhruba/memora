@@ -35,9 +35,27 @@ RLS will not express "audience = family." That stays in the repository where the
 
 **audit_logs** — `id`, `actor_user_id` null, `persona_id` null, `action`, `target_type`, `target_id`, `metadata` jsonb, `created_at`. No update or delete grants for the application role.
 
+### Account plans (membership)
+
+See [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+
+**plans** — seed catalog, not user-editable in MVP. `id` (`free`, `pro`, `pro_plus`), `display_name`, `limits` jsonb (must include `maxOwnedPersonas`: 1 / 5 / 20 and `maxChatMemoryMessages`: 100 / 1000 / 10000), `sort_order`, `active`.
+
+**subscriptions** — `user_id` PK/FK, `plan_id` FK, `status` (`active`, `past_due`, `canceled` — only `active` matters until billing), `override_max_personas` int null (admin support), `current_period_end` null until billing, `updated_at`. Every user gets a row on registration pointing at `free`.
+
+Owned-persona count for enforcement:
+
+```sql
+count(*) from persona_memberships m
+join personas p on p.id = m.persona_id
+where m.user_id = $user and m.role = 'owner' and p.deleted_at is null
+```
+
+Soft-deleted personas still count until purge (see membership doc).
+
 ### Persona and consent
 
-**personas** — `id`, `scenario` (`living`, `legacy`), `status` (`draft`, `collecting`, `ready`, `suspended`, `deleting`), `display_name`, `alternate_names` text[], `biography`, `languages` text[], `birth_year`, `death_year`, `profile_object_key`, `readiness` jsonb, `provider_key` (allowlisted provider id), `deleted_at`.
+**personas** — `id`, `scenario` (`living`, `legacy`), `status` (`draft`, `collecting`, `ready`, `suspended`, `deleting`), `display_name`, `alternate_names` text[], `biography`, `languages` text[], `birth_year`, `death_year`, `profile_object_key`, `readiness` jsonb, `provider_key` (allowlisted provider id), `created_by_user_id` FK, `deleted_at`.
 
 **persona_memberships** — `persona_id`, `user_id`, `role` (`owner`, `manager`, `contributor`, `participant`), `audience` (`private`, `family`, `friend`, `colleague`, `any`), unique `(persona_id, user_id)`.
 
@@ -119,7 +137,9 @@ Conversational memories live in `memories` with `domain = conversational`. No se
 
 - `users(email)` unique.
 - `sessions(token_hash)` unique, `sessions(user_id)`.
+- `subscriptions(plan_id)`.
 - `persona_memberships(user_id)`.
+- Partial unique or query index supporting owned count: `(user_id)` on `persona_memberships` where `role = 'owner'`.
 - `source_files(persona_id, status)`.
 - `source_messages(thread_id, sent_at)`.
 - `document_chunks` GIN on `content_tsv`.

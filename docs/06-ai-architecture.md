@@ -46,7 +46,7 @@ Fallback: if Sonnet errors, a configured same-provider fallback (Haiku) may answ
    - Conversation summary plus the last 8 turns, trimmed to a budget.
    - Up to 8 retrieved passages and up to 6 biographical memories.
 3. **Rewrite.** A deterministic query uses the raw user text. If the text is under 12 tokens, append the previous user turn. No LLM rewrite in the MVP. Add LLM rewrite in Phase 4 only if recall evals show pronoun failure.
-4. **Retrieve.** Hybrid search with filters. See [09-rag-pipeline.md](09-rag-pipeline.md).
+4. **Retrieve.** Hybrid search with filters. See [09-rag-pipeline.md](09-rag-pipeline.md). Conversational retrieval and recent turns are limited to the chatting user’s plan window (`maxChatMemoryMessages`: Free 100 / Pro 1,000 / Pro+ 10,000 by default). Biographical retrieval ignores that cap.
 5. **Assemble.** Token budget below.
 6. **Generate.** Stream. Temperature low for biographical questions (0.2–0.4) and slightly higher for small talk (0.6–0.8). Store the setting used.
 7. **Persist.** Assistant message, citation rows, usage row. If the user revealed a preference about the simulation ("call me by my nickname"), write a **conversational** memory, never a biographical one.

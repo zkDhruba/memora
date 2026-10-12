@@ -12,7 +12,7 @@ The product has three scenarios.
 | --- | --- | --- |
 | A. Living digital twin | The person themselves | They control sources, traits, and who may talk to the twin |
 | B. Digital legacy | An authorized representative of someone who has died | Family can talk to a labeled simulation without any claim that the person is alive or present |
-| C. Incremental development | Either of the above | New authorized material updates memory and style without retraining a model |
+| C. Incremental development | Either of the above | Feed anytime; new authorized material **accumulates** with the old. More reviewed data improves grounding. No full wipe or model retrain required |
 
 ## Experience principles
 

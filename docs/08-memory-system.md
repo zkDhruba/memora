@@ -36,6 +36,14 @@ These are values of `memory_type`, not extra tables. Relationship-specific rows 
 
 Conversational memory types are only `session_fact` (something the user told the simulation) and `session_preference` (how they want to be addressed). They are not episodic life events.
 
+## Plan-based conversational retention
+
+Membership plans cap how much **chat** history the simulation may use when answering. Defaults: Free **100**, Pro **1,000**, Pro+ **10,000** messages per user↔persona. Full rules: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+
+- `searchConversational` and the recent-turns loader must respect `maxChatMemoryMessages` from the chatting user’s plan.
+- Biographical search is never filtered by this cap.
+- Falling out of the window means “not remembered in chat,” not deletion of uploaded sources.
+
 ## Record shape
 
 | Field | Notes |
@@ -74,13 +82,17 @@ Candidates that fail the quote check are discarded. Candidates with sensitivity 
 
 Owner-entered memories skip the model and start as `confirmed`, class D, origin `owner_entered`.
 
-## Consolidation
+## Consolidation (additive imports)
+
+Each new import adds candidates; it does not clear the biographical store.
 
 Nightly, or at the end of an import:
 
 - Exact normalized duplicates merge evidence onto the older confirmed row.
 - Near duplicates (embedding cosine above 0.92 and same type) are queued for review, not auto-merged in the MVP.
 - A new candidate that negates a confirmed memory ("never liked cricket" versus "liked cricket") creates `memory_conflicts` and sets the new row to `conflict`.
+
+Confirmed memories from earlier files remain retrievable unless the owner rejects them, a superseding correction is written, or their only source is deleted.
 
 Phase 4 adds a reviewer UI. The MVP stores the conflict and hides both the new row and, if the contradiction is explicit, flags the old row with `has_conflict = true` without hiding it. The prompt is told that a flagged memory is disputed and should be described as disputed.
 

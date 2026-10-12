@@ -4,7 +4,7 @@ Memora Version 1 is a text-conversation product: evidence-grounded chat with a d
 
 ## Smallest usable MVP
 
-Phases 0 through 3. A living person can create an account, create one persona for themselves, upload text documents and a chat export, review extracted traits and memories, and have a streaming text conversation that cites sources and is visibly labeled as a simulation.
+Phases 0 through 3. A living person can create an account on Free (1 owned persona; Pro 5; Pro+ 20), CRUD personas fed by uploads, see each created persona in Chat immediately, upload text documents and a chat export, review extracted traits and memories, and have a streaming text conversation that cites sources and is visibly labeled as a simulation.
 
 Out of the MVP: voice of any kind, image understanding, OAuth if it slips, representative legacy workflows beyond the data model, administrator content review, and multi-provider automatic failover.
 
@@ -15,7 +15,7 @@ Legacy creation (Scenario B) is in the data model from Phase 1 so the consent ta
 | Phase | Outcome | Relative size |
 | --- | --- | --- |
 | 0 | This planning set, provider choice, threat model, eval design | Done as documentation |
-| 1 | Monorepo, auth, personas, dashboard shell, storage, database | Medium |
+| 1 | Monorepo, auth, persona CRUD, plan caps (1/5/20), chat picker, storage, database | Medium |
 | 2 | Uploads, parsers, jobs, chunks, embeddings, source registry | Large |
 | 3 | Personality card, memories, RAG **text** chat, citations, disclosure | Large |
 | 4 | Relationships, conflicts, calibration, evaluation harness | Large |
@@ -36,16 +36,19 @@ Full acceptance criteria: [docs/18-development-roadmap.md](docs/18-development-r
 
 ## Build order inside the MVP
 
-1. Database, sessions, and persona membership.
-2. Consent record and disclosure copy before any upload endpoint.
-3. Object storage upload with validation and malware scan.
-4. One parser (plain text and Markdown), then WhatsApp `.txt`, then PDF and DOCX.
-5. Chunk, embed, and store provenance.
-6. Human-reviewed personality card and biographical memories.
-7. Streaming **text** chat with retrieval filters and citations.
-8. Deletion that removes derived chunks, embeddings, and memories.
+1. Database, sessions, plan catalog, subscriptions, and persona membership.
+2. Persona CRUD + PlanGuard (Free 1 / Pro 5 / Pro+ 20) and Chat picker listing.
+3. Consent record and disclosure copy before any upload endpoint.
+4. Object storage upload with validation and malware scan.
+5. One parser (plain text and Markdown), then WhatsApp `.txt`, then PDF and DOCX.
+6. Chunk, embed, and store provenance.
+7. Human-reviewed personality card and biographical memories.
+8. Streaming **text** chat with retrieval filters and citations.
+9. Deletion that removes derived chunks, embeddings, and memories.
 
-Do not start the chat UI before retrieval is persona-scoped and tested. Do not start voice work until Version 2 is opened.
+The Chat **picker** ships in Phase 1; streaming model replies wait until retrieval is persona-scoped and tested. Do not start voice work until Version 2 is opened.
+
+Membership and persona lifecycle: [docs/22-membership-and-persona-lifecycle.md](docs/22-membership-and-persona-lifecycle.md).
 
 ## Default assumptions
 
@@ -58,3 +61,5 @@ Recorded in [docs/21-risks-and-open-questions.md](docs/21-risks-and-open-questio
 - One persona belongs to one owning account, with additional members by explicit grant.
 - Chat exports do not authorize exposing other participants' private messages to new people.
 - Conversation means text until Version 2.
+- New accounts are Free (1 owned persona; last **100** chat messages remembered). Pro: 5 personas / **1,000** messages. Pro+: 20 / **10,000**. Further plan rules TBD. Retention is conversational only — uploaded life data is not wiped by this cap.
+- Personas may be fed more data at any time; new sources accumulate and do not replace prior confirmed knowledge.

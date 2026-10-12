@@ -2,6 +2,16 @@
 
 Related: [03-feature-specification.md](03-feature-specification.md), [09-rag-pipeline.md](09-rag-pipeline.md), [14-security-privacy-consent.md](14-security-privacy-consent.md), [diagrams/04-ingestion-flow.md](diagrams/04-ingestion-flow.md).
 
+## Product rule: continuous additive feeding
+
+Related: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+
+- A persona may receive new imports at any time after creation.
+- Each **new** file is additive: new messages, chunks, embeddings, and extraction drafts join the existing store.
+- Confirmed memories and traits from earlier files are left in place. Overlaps attach evidence or open conflicts; they do not erase the old row.
+- Reprocess of file X bumps `generation` and replaces derived rows **for file X only**.
+- Exact duplicate uploads (same `persona_id` + SHA-256) do not create a second corpus wipe or a second full embed.
+
 ## Flow
 
 ```text
@@ -10,7 +20,7 @@ Presign → PUT bytes → complete → scan → parse → normalize
   → chunk → embed → readiness
 ```
 
-All stages after `complete` are BullMQ jobs in the NestJS worker. Payloads are ids. Bytes stay in object storage.
+The same flow runs for the first import and for every later import. All stages after `complete` are BullMQ jobs in the NestJS worker. Payloads are ids. Bytes stay in object storage.
 
 | Stage | Runtime | MVP |
 | --- | --- | --- |

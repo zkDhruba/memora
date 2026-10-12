@@ -40,6 +40,27 @@ Requirements use MoSCoW. MVP means Phases 1–3.
 | PER-4 | Profile photo, timeline, interests, and style notes | MVP for manual fields; AI extraction later in MVP |
 | PER-5 | Knowledge completeness is a computed status, not a vanity score of identity | MVP |
 | PER-6 | Version history for profile and personality card | Phase 4 |
+| PER-7 | Full persona CRUD: create, list, read, update, soft-delete | MVP |
+| PER-8 | Persona knowledge is built from fed data (uploads + owner-entered fields) via the ingestion and review pipeline | MVP |
+| PER-9 | After create, the persona appears in the user’s Chat picker without a separate publish step | MVP |
+| PER-10 | Authorized users may feed additional sources to a persona at any time after create | MVP |
+| PER-11 | New feeds accumulate; they must not replace or wipe prior sources’ confirmed knowledge | MVP |
+| PER-12 | Growing reviewed corpora improve grounding; completeness is operational, not an identity score | MVP |
+
+### Account membership (subscription plans)
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| PLAN-1 | Every account has a plan: `free`, `pro`, or `pro_plus`. Default for new accounts is `free` | MVP |
+| PLAN-2 | Max **owned** personas: Free **1**, Pro **5**, Pro+ **20** | MVP |
+| PLAN-3 | Invited memberships (manager / contributor / participant) do not count toward the create cap | MVP |
+| PLAN-4 | Create beyond the cap returns a stable plan-limit error; UI shows upgrade CTA | MVP |
+| PLAN-5 | Plan limits are driven by a versioned catalog so further restrictions can be added later without redesign | MVP |
+| PLAN-6 | Payment provider integration | Later (admin can assign plans until then) |
+| PLAN-7 | Conversational chat memory retention is plan-scoped: Free **100**, Pro **1,000**, Pro+ **10,000** messages (defaults) | MVP |
+| PLAN-8 | Retention applies only to Memora chat recall, never to biographical knowledge from fed sources | MVP |
+
+Details and downgrade defaults: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
 
 ### Ingestion
 

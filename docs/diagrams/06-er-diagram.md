@@ -6,6 +6,8 @@ Candidate tables from the brief that do not appear here were merged or deferred.
 erDiagram
   users ||--o{ sessions : has
   users ||--o{ mfa_factors : has
+  users ||--|| subscriptions : subscribes
+  plans ||--o{ subscriptions : defines
   users ||--o{ persona_memberships : joins
   personas ||--o{ persona_memberships : grants
   personas ||--o{ consents : requires

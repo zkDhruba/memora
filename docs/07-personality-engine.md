@@ -98,16 +98,18 @@ The chat prompt receives the compiled card and excerpts. It does not receive the
 
 Owner-requested traits (class D) are prefixed in the prompt as "instructions from the person who configured this simulation," so the model does not narrate them as past behavior.
 
-## Updates
+## Updates (additive)
 
-1. New file processed.
+Feeding is continuous. A new file never resets the personality card to empty.
+
+1. New file processed (may be months after the first import).
 2. New candidates are inserted as `pending_review` and linked to the file generation.
 3. If a candidate matches an existing confirmed trait (same facet, high string similarity, same audience), attach the new evidence and do not create a second trait.
 4. If it contradicts a confirmed trait, open a conflict and leave the old trait active.
 5. Reviewer confirms or rejects.
 6. Worker recompiles the card, bumps `profile_version`, and stores the previous JSON on `personality_profile_versions`.
 
-Deleting a source deletes evidence rows from that source. A trait with no remaining evidence returns to `pending_review` and drops out of the compiled card until reconfirmed.
+Deleting a source deletes evidence rows from that source. A trait with no remaining evidence returns to `pending_review` and drops out of the compiled card until reconfirmed. Other sources’ traits stay.
 
 ## What this will not do
 

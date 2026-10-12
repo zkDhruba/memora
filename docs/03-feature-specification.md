@@ -40,21 +40,65 @@ Stored on `persona_memberships.role`. Permissions can be narrowed, not widened p
 
 Participants also have an audience tag (`family`, `friend`, `colleague`, `private`) that filters memories and traits marked for a narrower audience.
 
-## Module B — Digital persona creation
+## Module B — Digital persona CRUD and data feed
 
-**MVP** wizard:
+Canonical rules: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
 
-1. Scenario: living subject (only "this is me" in MVP) or legacy (saved as draft).
-2. Names, languages, short biography written by the user.
-3. Optional manual style notes and boundaries ("do not discuss health").
-4. Consent: processing purpose, named provider, retention, and the simulation disclosure.
-5. Persona is created in `draft` until consent is stored, then `collecting`.
+### Create (MVP wizard)
+
+1. Plan guard: reject if owned persona count is at the plan maximum.
+2. Scenario: living subject (only "this is me" in MVP) or legacy (saved as draft).
+3. Names, languages, short biography written by the user.
+4. Optional manual style notes and boundaries ("do not discuss health").
+5. Consent: processing purpose, named provider, retention, and the simulation disclosure.
+6. Persona is created in `draft` until consent is stored, then `collecting`.
+7. Creator becomes `owner`. Persona is listed on the dashboard and in **Chat** immediately.
+
+### Read / Update / Delete (MVP)
+
+| Action | UI | Authz |
+| --- | --- | --- |
+| List | Dashboard + Chat persona switcher | Any membership |
+| View | Persona overview | Any membership (participant sees limited card) |
+| Update | Overview / personality / privacy editors | Owner, manager |
+| Delete | Settings on persona, confirm + MFA step-up | Owner only; soft delete then purge |
 
 Fields: id, display name, alternate names, profile object key, biography, languages, birth year (optional), death year (legacy only), communication notes, interests, readiness, privacy preset, created and updated timestamps. A voice-configuration field is reserved for Version 2 and is not shown in Version 1 UI.
+
+### Fed data → chat (continuous and additive)
+
+After create, authorized users feed the persona **whenever they want**, and as often as they want:
+
+1. Upload sources (Module C) — Library stays open for the life of the persona.
+2. Review extracted traits and memories.
+3. Confirmed material is what RAG uses in chat.
+4. Upload more later; each new source **accumulates** with existing chunks, memories, and traits.
+
+New imports must not clear prior confirmed knowledge. Reprocessing one file regenerates that file’s derivatives only. Deleting one source removes only that source’s derived data. See [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+
+Chat does not require a publish button. Thin biographies may chat with a “limited record” prompt until more data is reviewed. As reviewed material grows, answers should become better grounded — without claiming percentage identity.
 
 AI-assisted extraction (**MVP**, after the first successful import) proposes traits and memories as `pending_review`. Nothing pending is eligible for chat retrieval.
 
 Review actions: confirm, correct, reject, annotate. Confirmed items become retrievable. Corrected items store the reviewer's text as the canonical value and keep the model output in an audit field.
+
+## Module B2 — Account plans (membership)
+
+**MVP** without payment provider:
+
+| Plan | Max owned personas | Chat memory retention |
+| --- | --- | --- |
+| Free | 1 | Last **100** messages |
+| Pro | 5 | Last **1,000** messages |
+| Pro+ | 20 | Last **10,000** messages |
+
+- New accounts start on Free.
+- Account → Plan shows current plan, `owned / max`, chat memory window, and upgrade copy.
+- Admin can change a user’s plan until billing exists.
+- Chat retention limits only what the simulation recalls from prior **product chats**. Uploaded life records are unaffected.
+- Further limits (storage, tokens, seats, feature flags) are reserved in the plan catalog and decided later.
+
+Details: [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
 
 ## Module C — Data ingestion
 
@@ -138,8 +182,8 @@ Custom voice requires a living subject in the session, a fresh consent, and a re
 
 ## Module N — Product UI
 
-Screens are listed in [13-frontend-architecture.md](13-frontend-architecture.md). MVP screens: landing, auth, dashboard, create wizard, persona overview, upload, import status, review inbox, **text** chat, privacy, account. Image screens ship in Phase 5. Voice screens ship only in Version 2.
+Screens are listed in [13-frontend-architecture.md](13-frontend-architecture.md). MVP screens: landing, auth, dashboard (persona CRUD entry), create wizard, persona overview, upload, import status, review inbox, **text** chat with persona switcher, privacy, account/plan. Image screens ship in Phase 5. Voice screens ship only in Version 2.
 
 ## Module O — Administration
 
-**P6** for the full console. MVP includes health endpoints, job counts, and a break-glass content access path that is off, audited, and time-boxed if it is ever enabled. Admins manage users, suspensions, provider configuration, and cost. They do not browse memories.
+**P6** for the full console. MVP includes health endpoints, job counts, and a break-glass content access path that is off, audited, and time-boxed if it is ever enabled. Admins manage users, **assign Free / Pro / Pro+ plans**, suspensions, provider configuration, and cost. They do not browse memories.

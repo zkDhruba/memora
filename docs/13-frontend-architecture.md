@@ -18,25 +18,26 @@ app/
     reset/page.tsx
   (app)/
     layout.tsx               Session gate
-    dashboard/page.tsx
-    personas/new/page.tsx
+    dashboard/page.tsx       Persona list CRUD entry + plan badge
+    personas/new/page.tsx    Create (disabled at plan cap)
     personas/[id]/
-      page.tsx               Overview
+      page.tsx               Overview / edit
       library/page.tsx
       imports/[importId]/page.tsx
       review/page.tsx
       memories/page.tsx
       personality/page.tsx
       relationships/page.tsx
-      chat/page.tsx
+      chat/page.tsx           Chat for this persona
       chat/[sessionId]/page.tsx
       calibration/page.tsx   Phase 4
       privacy/page.tsx
       members/page.tsx
       # voice/page.tsx     Version 2 only — do not create in Version 1
-    settings/page.tsx
+    chat/page.tsx            Global chat hub: persona switcher → session
+    settings/page.tsx        Account + Plan (owned / max)
   (admin)/
-    admin/page.tsx           Phase 6
+    admin/page.tsx           Phase 6 (includes assign plan)
 ```
 
 `(app)/layout.tsx` is a Server Component that calls `GET /me`. On 401 it redirects to login. Persona layouts fetch the membership and pass a read-only capability map into client islands.
@@ -102,14 +103,18 @@ The disclosure banner is on every chat view and is not dismissible. The same ban
 
 | View | Empty | Error |
 | --- | --- | --- |
-| Dashboard | Explain creating a first persona | Retry `/me` |
+| Dashboard | Explain creating a first persona; show plan `owned/max`; disable Create with upgrade CTA at cap | Retry `/me` |
 | Library | Invite an upload | List partial files |
 | Review | "Nothing waiting" | Keep previously loaded items |
-| Chat | Suggested prompts that do not invent facts, such as "What is in the biography?" | Abstention and provider failure are different copy |
+| Chat hub | If user has personas: persona switcher. If none: CTA to create (or upgrade if at cap with zero — should not happen) | — |
+| Chat session | Suggested prompts that do not invent facts, such as "What is in the biography?" | Abstention and provider failure are different copy |
 | Legacy draft | "Conversations stay off until you finish the authorization note" | — |
+| Plan | Current Free / Pro / Pro+, persona quota, and chat memory window (e.g. last 100 messages) | — |
 
 ## Navigation
 
-Landing → register → verify → dashboard → wizard → persona overview.
+Landing → register → verify → dashboard → wizard (if under plan cap) → persona overview → Chat (persona already in switcher).
+
+App chrome: **Dashboard | Chat | Settings**. Chat opens the hub with a persona switcher listing every accessible persona created or shared with the user.
 
 Persona subnav: Overview, Library, Review, Memories, Personality, Chat, Privacy, Members. Relationships and Calibration appear when Phase 4 exists. Voice is Version 2 and must not appear in Version 1 navigation. Admin is a separate entry only for platform admins, visually distinct so it is not mistaken for persona content.

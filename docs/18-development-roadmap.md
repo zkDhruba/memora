@@ -18,21 +18,21 @@ Definition of done: documents agree on memory domains, provider allowlist, and M
 
 ## Phase 1 — Platform foundation
 
-**Objective:** a signed-in user can create a living persona and see an empty studio.
+**Objective:** a signed-in user can CRUD a living persona under Free/Pro/Pro+ caps and see it in Chat.
 
-**Features:** monorepo, auth, MFA, sessions, personas, consent records, audit, dashboard shell, MinIO, Postgres, Redis.
+**Features:** monorepo, auth, MFA, sessions, personas CRUD, plan catalog and subscriptions, consent records, audit, dashboard + chat hub shell, MinIO, Postgres, Redis.
 
 **Depends on:** Phase 0.
 
 **Complexity:** M.
 
-**Tasks:** scaffold pnpm and Turborepo; Drizzle schema for identity, personas, consent; Nest auth; Next auth screens; Docker Compose; health checks.
+**Tasks:** scaffold pnpm and Turborepo; Drizzle schema for identity, plans, subscriptions, personas, consent; `PlanGuard`; Nest auth; Next auth, dashboard, create wizard, chat picker; Docker Compose; health checks.
 
-**Deliverables:** running `pnpm dev`, migrations, login and persona wizard without uploads.
+**Deliverables:** running `pnpm dev`, migrations, login, persona CRUD without uploads, plan limits enforced, persona visible in Chat after create.
 
-**Acceptance:** verification email in Mailpit; MFA step-up on persona delete; second user cannot read the persona; OpenAPI lists the auth routes.
+**Acceptance:** verification email in Mailpit; Free user cannot create a second owned persona (`PLAN_LIMIT_PERSONAS`); created persona appears in Chat switcher; MFA step-up on persona delete; second user cannot read the persona; OpenAPI lists the auth and persona routes.
 
-**Test plan:** Vitest auth service; Playwright register and create persona; RLS test for `personas` if policies are already on.
+**Test plan:** Vitest auth and PlanGuard; Playwright register, create persona, open Chat hub; RLS test for `personas` if policies are already on.
 
 **Done when:** those tests pass in CI and secrets are only in `.env`.
 
@@ -46,7 +46,7 @@ Definition of done: documents agree on memory domains, provider allowlist, and M
 
 **Complexity:** L.
 
-**Acceptance:** a WhatsApp fixture yields messages with the subject mapped; a duplicate hash does not double-charge embedding; an EICAR test file is rejected; deleting a file removes chunks.
+**Acceptance:** a WhatsApp fixture yields messages with the subject mapped; a second distinct file accumulates chunks without removing the first file’s chunks; a duplicate hash does not double-charge embedding; an EICAR test file is rejected; deleting one file removes only that file’s chunks.
 
 **Test plan:** parser fixtures; job restart; purge integration test.
 

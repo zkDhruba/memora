@@ -13,6 +13,7 @@ This repository currently contains the architecture and implementation plan. App
 | [docs/20-technical-decisions.md](docs/20-technical-decisions.md) | Locked technology choices |
 | [docs/18-development-roadmap.md](docs/18-development-roadmap.md) | Phase objectives and acceptance criteria |
 | [docs/19-implementation-task-breakdown.md](docs/19-implementation-task-breakdown.md) | Ordered engineering backlog |
+| [docs/22-membership-and-persona-lifecycle.md](docs/22-membership-and-persona-lifecycle.md) | Plans (Free/Pro/Pro+), persona CRUD, chat listing |
 
 The full planning set is in [docs/](docs/). Diagrams are in [docs/diagrams/](docs/diagrams/).
 

@@ -215,3 +215,9 @@ Each decision has one default. Change it only when the stated condition is true.
 | Package manager | pnpm |
 | Conversation modality in Version 1 | Text only (SSE chat) |
 | Voice | Version 2 |
+| Account plans | `free` / `pro` / `pro_plus` with max owned personas 1 / 5 / 20 |
+| Chat memory by plan | Free 100 / Pro 1,000 / Pro+ 10,000 messages (user↔persona); conversational only |
+| Plan enforcement | Single `PlanGuard` + `plans.limits` JSONB for future rules |
+| Persona → chat | Create lists persona in Chat immediately; no publish step |
+| Data feeding | Anytime, additive; new sources accumulate; no corpus wipe on new upload |
+| Billing provider | Deferred; admin assigns plans until then |

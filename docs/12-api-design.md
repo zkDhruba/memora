@@ -60,16 +60,20 @@ Login failure case: same message for unknown email and bad password. Lockout aft
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/me` | Profile and platform role |
+| GET | `/me` | Profile, platform role, and embedded plan summary |
+| GET | `/me/plan` | `{ planId, displayName, limits, ownedPersonaCount, maxOwnedPersonas, maxChatMemoryMessages, overLimit }` |
 | PATCH | `/me` | `{ displayName, locale, timeZone }` |
 | DELETE | `/me` | `{ password, totp }` queues erasure |
 
 ## Personas
 
+Full CRUD. Create is gated by plan. See [22-membership-and-persona-lifecycle.md](22-membership-and-persona-lifecycle.md).
+
 | Method | Path | Authz | Body / result |
 | --- | --- | --- | --- |
-| GET | `/personas` | Session | Memberships |
-| POST | `/personas` | Session | `{ scenario, displayName, languages, biography, attestation }` |
+| GET | `/personas` | Session | Memberships; include `role`, `status`, `chatEligible` |
+| GET | `/personas?for=chat` | Session | Same list filtered for the Chat picker (not deleted, not suspended) |
+| POST | `/personas` | Session + under plan cap | `{ scenario, displayName, languages, biography, attestation }` |
 | GET | `/personas/:id` | Any member | Card appropriate to role |
 | PATCH | `/personas/:id` | Owner, manager | Profile fields |
 | DELETE | `/personas/:id` | Owner | Soft delete |
@@ -77,7 +81,13 @@ Login failure case: same message for unknown email and bad password. Lockout aft
 | PATCH | `/personas/:id/members/:userId` | Owner | Role or audience |
 | DELETE | `/personas/:id/members/:userId` | Owner | Revoke |
 
-Failure: legacy persona `POST` with `scenario=legacy` returns the persona in `draft` and `chat` disabled. Second owner is rejected (`409`).
+Failure cases:
+
+- At plan cap on create → `403 PLAN_LIMIT_PERSONAS` with `{ plan, maxOwnedPersonas, currentOwned }`.
+- Legacy persona `POST` with `scenario=legacy` returns the persona in `draft` and chat send disabled until attestation rules pass.
+- Second owner is rejected (`409`).
+
+Successful create returns the persona and it must appear in `GET /personas?for=chat` without further steps.
 
 ## Consent
 
@@ -150,8 +160,9 @@ Prefix `/admin`, platform role `admin`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/admin/users` | Search by email |
+| GET | `/admin/users` | Search by email; include plan id |
 | POST | `/admin/users/:id/disable` | Disable login |
+| PATCH | `/admin/users/:id/plan` | `{ planId, overrideMaxPersonas? }` until billing exists |
 | GET | `/admin/jobs` | Counts and dead letters, no payloads that contain text |
 | POST | `/admin/jobs/:id/retry` | Retry |
 | GET | `/admin/usage` | Token sums |

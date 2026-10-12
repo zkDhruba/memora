@@ -23,6 +23,7 @@
 | 19 | [Implementation task breakdown](19-implementation-task-breakdown.md) |
 | 20 | [Technical decisions](20-technical-decisions.md) |
 | 21 | [Risks and open questions](21-risks-and-open-questions.md) |
+| 22 | [Membership tiers and persona lifecycle](22-membership-and-persona-lifecycle.md) |
 
 Diagrams: [system context](diagrams/01-system-context.md), [containers](diagrams/02-containers.md), [orchestration](diagrams/03-orchestration.md), [ingestion](diagrams/04-ingestion-flow.md), [memory separation](diagrams/05-memory-separation.md), [ER](diagrams/06-er-diagram.md), [sequences](diagrams/07-sequences.md).
 
