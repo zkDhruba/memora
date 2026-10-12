@@ -46,7 +46,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 2 — Identity and plans
 
-- [ ] **1.3** Drizzle migrations: users, sessions, mfa, audit, plans, subscriptions, personas, memberships, consents (seed Free/Pro/Pro+)
+- [x] **1.3** Drizzle migrations: users, sessions, mfa, audit, plans, subscriptions, personas, memberships, consents (seed Free/Pro/Pro+)
 - [ ] **1.4** Register, verify email, login, reset, cookie session; Free subscription on signup
 - [ ] **1.5** TOTP MFA + recovery codes (step-up on delete)
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-12 | 1.3 | Drizzle schema + migration for identity/plans/personas/consents; seed Free/Pro/Pro+; migrate twice OK |
 | 2026-10-12 | 1.2 | Compose stack up: Postgres 18+pgvector, Redis 7, Silo (MinIO API), Mailpit, ClamAV; buckets + healthchecks verified |
 | 2026-10-12 | 1.1 | pnpm+Turborepo monorepo; Next 16 web, Nest 12 API, shared+db packages; `pnpm check` green |
 
@@ -254,6 +255,23 @@ docker run --rm --network memora_default --entrypoint /bin/sh pgsty/mc:latest \
 **Fail if:** any service stays unhealthy; `vector` extension missing; health/live or Mailpit API fail; buckets missing.
 
 **Note:** Local object store image is `pgsty/silo` (MinIO S3 API). Official `minio/minio` was removed from Docker Hub in 2026; `.env` S3 settings are unchanged.
+
+### 1.3 — Drizzle migrations + plan seed
+
+```bash
+pnpm deps:up          # Postgres healthy
+pnpm db:migrate       # apply (safe a second time)
+pnpm db:migrate       # expect "Migrations applied" again, no errors
+pnpm db:seed          # upsert Free / Pro / Pro+
+
+docker exec memora-postgres psql -U memora -d memora -c "\dt"
+docker exec memora-postgres psql -U memora -d memora \
+  -c "SELECT id, display_name, limits->>'maxOwnedPersonas' AS max_owned FROM plans ORDER BY sort_order;"
+```
+
+**Expect:** ten tables (`users` … `consents`); three plans with max owned **1 / 5 / 20**. Second migrate is a no-op. Second seed updates in place.
+
+**Fail if:** migrate errors on second run; plan rows missing or wrong limits; `pnpm --filter @memora/db typecheck` fails.
 
 ---
 

@@ -51,14 +51,17 @@ PROGRESS.md    Version 1 checklist
 ```bash
 corepack enable
 pnpm install
+pnpm deps:up        # Postgres, Redis, Silo, Mailpit, ClamAV
+pnpm db:migrate     # apply Drizzle migrations
+pnpm db:seed        # Free / Pro / Pro+ plan catalog
 pnpm check          # build + typecheck
-pnpm dev            # web :3000 + api :4000 (after install)
+pnpm dev            # web :3000 + api :4000
 ```
 
 Track progress in [PROGRESS.md](PROGRESS.md). **Golden rule:** every finished task includes a **How to test** section (commands + expected result) in chat and under “How to test completed tasks” in that file.
 
 ## Status
 
-Phase **1.1** monorepo scaffold is in place. Planning docs remain the source of product decisions. Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
+Phase **1** in progress through **1.3** (schema + plan seed). Planning docs remain the source of product decisions. Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
 
 This plan is engineering guidance. It is not legal advice. Deployment in Bangladesh or any other jurisdiction needs counsel review against [docs/14-security-privacy-consent.md](docs/14-security-privacy-consent.md).

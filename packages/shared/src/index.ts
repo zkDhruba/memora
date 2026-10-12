@@ -1,4 +1,10 @@
-export { PLAN_IDS, type PlanId } from "./plans";
+export {
+  PLAN_IDS,
+  PLAN_CATALOG,
+  type PlanId,
+  type PlanLimits,
+  type PlanCatalogEntry,
+} from "./plans";
 export {
   registerBodySchema,
   loginBodySchema,
