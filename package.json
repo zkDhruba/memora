@@ -1,0 +1,22 @@
+{
+  "name": "memora",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "check": "pnpm build && pnpm typecheck",
+    "build:packages": "turbo run build --filter=@memora/shared --filter=@memora/db",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.9.2"
+  }
+}
