@@ -11,6 +11,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "check": "pnpm build && pnpm typecheck",
+    "ci:check": "pnpm typecheck && pnpm test",
     "build:packages": "turbo run build --filter=@memora/shared --filter=@memora/db",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",

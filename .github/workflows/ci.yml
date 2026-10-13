@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: memora
+          POSTGRES_PASSWORD: memora
+          POSTGRES_DB: memora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U memora -d memora"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://memora:memora@localhost:5432/memora
+      REDIS_URL: redis://localhost:6379
+      APP_DATA_KEY: memora-ci-app-data-key
+      WEB_ORIGIN: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      CI: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enable Postgres extensions
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          until pg_isready -h localhost -U memora -d memora; do sleep 1; done
+          PGPASSWORD=memora psql -h localhost -U memora -d memora -v ON_ERROR_STOP=1 \
+            -c 'CREATE EXTENSION IF NOT EXISTS vector;' \
+            -c 'CREATE EXTENSION IF NOT EXISTS "pgcrypto";'
+
+      - name: Migrate and seed
+        run: pnpm db:migrate && pnpm db:seed
+
+      - name: Typecheck and test
+        run: pnpm ci:check

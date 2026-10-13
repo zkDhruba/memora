@@ -16,7 +16,15 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "APP_DATA_KEY",
+        "CI",
+        "WEB_ORIGIN",
+        "NEXT_PUBLIC_API_URL"
+      ]
     },
     "clean": {
       "cache": false

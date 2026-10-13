@@ -26,7 +26,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 | Phase | Name | Status | Notes |
 | --- | --- | --- | --- |
 | 0 | Planning / docs | done | Architecture docs complete |
-| 1 | Platform foundation | in_progress | Auth, plans, persona CRUD, Chat picker |
+| 1 | Platform foundation | done | Auth, plans, personas, audit, shell, CI |
 | 2 | Ingestion | todo | Upload, parse, chunk, additive feeds |
 | 3 | AI persona (MVP) | todo | Review, RAG, streaming chat, quotas |
 | 4 | Personality / relationships | todo | After MVP |
@@ -37,7 +37,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ## Phase 1 — Platform foundation
 
-**Phase status:** `in_progress`
+**Phase status:** `done`
 
 ### Bite 1 — Repo and infra
 
@@ -60,8 +60,8 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 - [x] **1.8** Chat hub + persona switcher (persona appears after create, no publish step)
 - [x] **1.9** Membership checks; strangers get 404
 - [x] **1.10** Audit log for auth, consent, plan changes
-- [ ] **1.11** App shell: Dashboard \| Chat \| Settings; disclosure on chat placeholder
-- [ ] **1.12** CI: typecheck + unit tests green
+- [x] **1.11** App shell: Dashboard \| Chat \| Settings; disclosure on chat placeholder
+- [x] **1.12** CI: typecheck + unit tests green
 
 **Phase 1 done when:** Free user creates one persona, sees it in Chat, cannot create a second; MFA delete works; CI green.
 
@@ -189,6 +189,8 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 1.12 | GitHub Actions CI: typecheck + tests with Postgres/Redis; `pnpm ci:check`; shared plan unit tests |
+| 2026-10-13 | 1.11 | App shell polish: Log out, skip link, EmptyState, chat listbox ↑/↓, disclosure; Settings logout-all |
 | 2026-10-13 | 1.10 | Audit inserts (auth/consent/plan.change/authz.denied); GET /me/audit; Settings activity list; change-plan script |
 | 2026-10-13 | 1.9 | PersonaAccessService: strangers → 404 PERSONA_NOT_FOUND; wrong role → 403; vitest + HTTP check |
 | 2026-10-13 | 1.8 | Chat hub + persona switcher; disclosure banner; create lands on /chat?persona=; no publish step |
@@ -480,6 +482,41 @@ curl -sS -b "$JAR" 'http://localhost:4000/api/v1/me/audit?limit=5'
 **Edge:** Participant denied an owner action → `authz.denied` row for that actor (NFR-3). Stranger 404 is not audited (no existence leak).
 
 **Fail if:** `/me/audit` empty after login; plan change script does not insert `plan.change`; Settings activity missing after auth actions.
+
+### 1.11 — App shell (nav, empty states, disclosure, logout)
+
+```bash
+pnpm deps:up && pnpm --filter @memora/api start   # :4000
+pnpm --filter @memora/web dev                     # :3000
+```
+
+**Browser happy path**
+1. Sign in → top nav shows **Dashboard | Chat | Settings** + **Log out**
+2. Tab from the top of the page → **Skip to main content** appears; Enter jumps to `#main-content`
+3. Dashboard with zero personas → dashed empty state + create CTA (or plan-cap copy)
+4. Chat with personas → non-dismissible **AI simulation disclosure**; focus persona list and use ↑/↓
+5. Settings → **Log out** or **Log out all devices** → redirected to `/login`; `/dashboard` then requires login again
+
+**Edge:** MFA enabled → Log out all without step-up shows MFA step-up message (does not clear session).
+
+**Fail if:** no logout control; disclosure missing on Chat; Tab order skips primary nav; empty dashboard/chat has no guidance.
+
+### 1.12 — CI (typecheck + tests)
+
+```bash
+# Local (deps up for API integration tests)
+pnpm deps:up && pnpm db:migrate && pnpm db:seed
+pnpm ci:check
+# → turbo typecheck all packages; vitest: shared (3) + api (9)
+```
+
+**GitHub:** push a branch / open a PR → workflow **CI** (`.github/workflows/ci.yml`) runs on Ubuntu with `pgvector/pgvector:pg18` + Redis service containers, migrates/seeds, then `pnpm ci:check`.
+
+**Happy path:** Actions check is green; locally `pnpm ci:check` exits 0.
+
+**Edge:** without `DATABASE_URL` / Postgres, `@memora/api` integration tests fail (expected). Shared unit tests still run.
+
+**Fail if:** workflow missing; lockfile drift breaks `--frozen-lockfile`; typecheck or tests red on PR.
 
 ---
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { EmptyState } from "../../../components/EmptyState";
 import {
   apiFetch,
   type PersonaListItem,
@@ -66,23 +67,27 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-[var(--danger)]" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       {personas.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-12 text-center">
-          <p className="font-medium">No personas yet</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Create your first persona to appear on the dashboard and in Chat.
-          </p>
-          {plan?.canCreatePersona ? (
-            <Link
-              href="/personas/new"
-              className="mt-4 inline-block text-sm font-medium text-[var(--accent)]"
-            >
-              Open create wizard →
-            </Link>
-          ) : null}
-        </div>
+        <EmptyState
+          title="No personas yet"
+          description="Create your first persona to appear on the dashboard and in Chat."
+          action={
+            plan?.canCreatePersona ? (
+              <Link
+                href="/personas/new"
+                className="inline-block text-sm font-medium text-[var(--accent)]"
+              >
+                Open create wizard →
+              </Link>
+            ) : null
+          }
+        />
       ) : (
         <ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface)]">
           {personas.map((p) => (

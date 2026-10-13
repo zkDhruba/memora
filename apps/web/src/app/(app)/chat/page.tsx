@@ -2,8 +2,16 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  useState,
+} from "react";
 import { DisclosureBanner } from "../../../components/DisclosureBanner";
+import { EmptyState } from "../../../components/EmptyState";
 import {
   apiFetch,
   type PersonaListItem,
@@ -14,6 +22,7 @@ function ChatHubInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("persona");
+  const listRef = useRef<HTMLUListElement>(null);
 
   const [personas, setPersonas] = useState<PersonaListItem[]>([]);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
@@ -30,7 +39,6 @@ function ChatHubInner() {
         if (cancelled) return;
         setPersonas(list.data);
         setPlan(p);
-        // If URL has an unknown/stale id, clear it.
         if (
           selectedId &&
           !list.data.some((persona) => persona.id === selectedId)
@@ -58,12 +66,41 @@ function ChatHubInner() {
     router.replace(`/chat?persona=${encodeURIComponent(id)}`);
   }
 
+  function onListKeyDown(e: KeyboardEvent<HTMLUListElement>) {
+    if (personas.length === 0) return;
+    const idx = selectedId
+      ? personas.findIndex((p) => p.id === selectedId)
+      : -1;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const next = personas[Math.min(idx + 1, personas.length - 1)] ?? personas[0];
+      if (next) selectPersona(next.id);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prev =
+        personas[Math.max(idx - 1, 0)] ?? personas[personas.length - 1];
+      if (prev) selectPersona(prev.id);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      const first = personas[0];
+      if (first) selectPersona(first.id);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      const last = personas[personas.length - 1];
+      if (last) selectPersona(last.id);
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-[var(--muted)]">Loading chat hub…</p>;
   }
 
   if (error) {
-    return <p className="text-sm text-[var(--danger)]">{error}</p>;
+    return (
+      <p className="text-sm text-[var(--danger)]" role="alert">
+        {error}
+      </p>
+    );
   }
 
   if (personas.length === 0) {
@@ -71,26 +108,25 @@ function ChatHubInner() {
       <div className="flex flex-col gap-6">
         <h1 className="text-3xl font-semibold tracking-tight">Chat</h1>
         <DisclosureBanner />
-        <div className="rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-12 text-center">
-          <p className="font-medium">No personas in Chat yet</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Create a persona on the dashboard. It appears here automatically —
-            there is no separate publish step.
-          </p>
-          {plan?.canCreatePersona ? (
-            <Link
-              href="/personas/new"
-              className="mt-4 inline-block text-sm font-medium text-[var(--accent)]"
-            >
-              Create persona →
-            </Link>
-          ) : (
-            <p className="mt-4 text-sm text-[var(--muted)]">
-              You are at your plan cap. Upgrade or wait until a purged persona
-              frees a slot.
-            </p>
-          )}
-        </div>
+        <EmptyState
+          title="No personas in Chat yet"
+          description="Create a persona on the dashboard. It appears here automatically — there is no separate publish step."
+          action={
+            plan?.canCreatePersona ? (
+              <Link
+                href="/personas/new"
+                className="inline-block text-sm font-medium text-[var(--accent)]"
+              >
+                Create persona →
+              </Link>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">
+                You are at your plan cap. Upgrade or wait until a purged persona
+                frees a slot.
+              </p>
+            )
+          }
+        />
       </div>
     );
   }
@@ -101,7 +137,7 @@ function ChatHubInner() {
         <h1 className="text-3xl font-semibold tracking-tight">Chat</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Switch personas below. New personas show up here as soon as they are
-          created.
+          created. Use ↑/↓ when the list is focused.
         </p>
       </div>
 
@@ -109,16 +145,28 @@ function ChatHubInner() {
 
       <div className="grid gap-4 md:grid-cols-[220px_1fr]">
         <aside className="rounded-lg border border-[var(--border)] bg-[var(--surface)]">
-          <p className="border-b border-[var(--border)] px-3 py-2 text-xs font-medium tracking-wide text-[var(--muted)] uppercase">
+          <p
+            id="persona-switcher-label"
+            className="border-b border-[var(--border)] px-3 py-2 text-xs font-medium tracking-wide text-[var(--muted)] uppercase"
+          >
             Personas
           </p>
-          <ul className="max-h-[420px] overflow-auto py-1">
+          <ul
+            ref={listRef}
+            role="listbox"
+            aria-labelledby="persona-switcher-label"
+            tabIndex={0}
+            onKeyDown={onListKeyDown}
+            className="max-h-[420px] overflow-auto py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+          >
             {personas.map((p) => {
               const active = p.id === selected?.id;
               return (
-                <li key={p.id}>
+                <li key={p.id} role="presentation">
                   <button
                     type="button"
+                    role="option"
+                    aria-selected={active}
                     onClick={() => selectPersona(p.id)}
                     className={`flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left text-sm transition ${
                       active
@@ -138,11 +186,14 @@ function ChatHubInner() {
           </ul>
         </aside>
 
-        <section className="flex min-h-[360px] flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)]">
+        <section
+          aria-live="polite"
+          className="flex min-h-[360px] flex-col rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+        >
           {selected ? (
             <>
               <header className="border-b border-[var(--border)] px-4 py-3">
-                <p className="font-medium">{selected.displayName}</p>
+                <h2 className="font-medium">{selected.displayName}</h2>
                 <p className="text-xs text-[var(--muted)]">
                   {selected.scenario} · {selected.status} · your role:{" "}
                   {selected.role}
@@ -180,6 +231,7 @@ function ChatHubInner() {
                 <div className="flex gap-2">
                   <input
                     disabled
+                    aria-label="Message composer (coming in Phase 3)"
                     placeholder="Message composer unlocks with streaming chat (Phase 3)"
                     className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--muted)]"
                   />

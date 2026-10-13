@@ -39,8 +39,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#main-content"
+        className="absolute top-3 left-3 z-50 -translate-y-16 rounded-md bg-[var(--surface)] px-3 py-2 text-sm shadow transition focus:translate-y-0 focus:outline focus:outline-2 focus:outline-[var(--accent)]"
+      >
+        Skip to main content
+      </a>
       <AppNav email={me.email} />
-      <div className="mx-auto max-w-5xl px-6 py-8">{children}</div>
+      <main id="main-content" tabIndex={-1} className="mx-auto max-w-5xl px-6 py-8 outline-none">
+        {children}
+      </main>
     </div>
   );
 }
