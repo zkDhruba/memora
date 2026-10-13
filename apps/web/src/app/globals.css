@@ -1,14 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f4ef;
-  --foreground: #1c1917;
-  --muted: #78716c;
-  --accent: #0f766e;
+  --background: #eef1f4;
+  --foreground: #15202b;
+  --muted: #5b6b7c;
+  --surface: #fbfcfd;
+  --border: #d5dde5;
+  --accent: #1b6b4a;
+  --accent-soft: #d8efe4;
+  --danger: #9b2c2c;
+  --warn: #8a6d1d;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #dce8e2 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #d9e3f0 0%, transparent 50%),
+    var(--background);
   color: var(--foreground);
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
 }

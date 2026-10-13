@@ -44,3 +44,13 @@ export const consentPurposeEnum = pgEnum("consent_purpose", [
   "extract_profile",
   "converse",
 ]);
+
+export const attestationKindEnum = pgEnum("attestation_kind", [
+  "self",
+  "representative",
+]);
+
+export const attestationStatusEnum = pgEnum("attestation_status", [
+  "declared",
+  "disputed",
+]);

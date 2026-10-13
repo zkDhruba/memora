@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import { auditLogs } from "./audit";
+import { authorizationAttestations } from "./attestations";
 import { consents } from "./consents";
 import { mfaFactors, recoveryCodes } from "./mfa";
 import { personaMemberships, personas } from "./personas";
@@ -50,7 +51,18 @@ export const personasRelations = relations(personas, ({ one, many }) => ({
   }),
   memberships: many(personaMemberships),
   consents: many(consents),
+  attestations: many(authorizationAttestations),
 }));
+
+export const authorizationAttestationsRelations = relations(
+  authorizationAttestations,
+  ({ one }) => ({
+    persona: one(personas, {
+      fields: [authorizationAttestations.personaId],
+      references: [personas.id],
+    }),
+  }),
+);
 
 export const personaMembershipsRelations = relations(
   personaMemberships,

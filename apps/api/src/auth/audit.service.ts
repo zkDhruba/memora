@@ -9,6 +9,7 @@ export class AuditService {
 
   async record(input: {
     actorUserId?: string | null;
+    personaId?: string | null;
     action: string;
     targetType?: string;
     targetId?: string;
@@ -17,6 +18,7 @@ export class AuditService {
     await this.db.insert(auditLogs).values({
       id: newId(),
       actorUserId: input.actorUserId ?? null,
+      personaId: input.personaId ?? null,
       action: input.action,
       targetType: input.targetType ?? null,
       targetId: input.targetId ?? null,

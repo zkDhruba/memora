@@ -23,3 +23,15 @@ export {
   type MfaStepUpBody,
   type DeleteMeBody,
 } from "./auth";
+export {
+  createPersonaBodySchema,
+  updatePersonaBodySchema,
+  consentGrantBodySchema,
+  attestationBodySchema,
+  personaScenarioSchema,
+  consentPurposeSchema,
+  type CreatePersonaBody,
+  type UpdatePersonaBody,
+  type ConsentGrantBody,
+  type AttestationBody,
+} from "./personas";

@@ -53,7 +53,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 3 — PlanGuard and persona CRUD
 
 - [x] **1.6** `PlanGuard` + `GET /me/plan` (personas 1/5/20, memory 100/1k/10k, daily sends 25/100/unlimited)
-- [ ] **1.7** Persona CRUD UI/API, attestation, consent; listed on dashboard
+- [x] **1.7** Persona CRUD UI/API, attestation, consent; listed on dashboard
 
 ### Bite 4 — Shell and Chat picker
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 1.7 | Persona CRUD API+UI; attestation; consents; draft→collecting; Free second create PLAN_LIMIT_PERSONAS |
 | 2026-10-13 | 1.6 | PlanGuard + GET /me/plan; assertCanCreatePersona → PLAN_LIMIT_PERSONAS; daily send Redis helpers |
 | 2026-10-12 | 1.5 | TOTP MFA + recovery codes; step-up for logout-all; DELETE /me requires password+MFA; APP_DATA_KEY encrypt |
 | 2026-10-12 | 1.4 | Argon2id auth: register/verify/login/logout/reset; HttpOnly cookie sessions; Free sub on signup; Mailpit OK |
@@ -380,6 +381,32 @@ pnpm --filter @memora/api exec tsx scripts/check-plan-limit.ts "$USER_ID"
 **Edge — daily send:** set Redis `chat_send:{userId}:{yyyyMMdd}` to 25 → `chatMessagesUsedToday: 25`; `assertCanSendChatMessage` → `429 PLAN_LIMIT_CHAT_DAY`.
 
 **Fail if:** Free plan shows wrong caps; second owned persona still allows create; Pro+ daily cap is not `null`.
+
+### 1.7 — Persona CRUD (API + dashboard)
+
+```bash
+pnpm deps:up && pnpm db:migrate && pnpm db:seed
+pnpm --filter @memora/api dev    # :4000
+pnpm --filter @memora/web dev    # :3000
+```
+
+**Browser happy path**
+1. Register / verify (Mailpit :8025) / login → `/dashboard`
+2. Create persona (`/personas/new`) with self attestation + host + converse consents
+3. Persona listed on dashboard with status `collecting`
+4. Open persona → edit biography → Save
+
+**API — Free second create**
+```bash
+# After one owned persona on Free:
+curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/personas \
+  -H 'Content-Type: application/json' -d '{...}'
+# → 403 PLAN_LIMIT_PERSONAS
+```
+
+**Draft until consent:** create without `consents` → `status: draft`, `chatEligible: false`; grant `host_records` + `converse` → `collecting`.
+
+**Fail if:** second Free create succeeds; persona missing from dashboard; stranger `GET /personas/:id` is not 404.
 
 ---
 
