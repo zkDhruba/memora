@@ -3,6 +3,7 @@ import { AuthModule } from "./auth/auth.module";
 import { DbModule } from "./db/db.module";
 import { FilesModule } from "./files/files.module";
 import { HealthController } from "./health.controller";
+import { JobsModule } from "./jobs/jobs.module";
 import { MailModule } from "./mail/mail.module";
 import { PersonasModule } from "./personas/personas.module";
 import { PlansModule } from "./plans/plans.module";
@@ -17,6 +18,7 @@ import { StorageModule } from "./storage/storage.module";
     MailModule,
     StorageModule,
     ScanningModule,
+    JobsModule,
     AuthModule,
     PlansModule,
     PersonasModule,

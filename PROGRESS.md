@@ -78,7 +78,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 2 — Jobs
 
-- [ ] **2.3** BullMQ, generation, retries, dead letter
+- [x] **2.3** BullMQ, generation, retries, dead letter
 
 ### Bite 3 — Parsers
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.3 | BullMQ ingestion queue + DLQ; processing_jobs; worker entry; retry then success + dead after 5 |
 | 2026-10-13 | 2.2 | ClamAV INSTREAM on complete; clean→memora-clean; EICAR→FILE_INFECTED + quarantine delete |
 | 2026-10-13 | 2.1 | source_imports/files/versions; S3 presign PUT → quarantine; complete + HeadObject; CONSENT_REQUIRED |
 | 2026-10-13 | 1.12 | GitHub Actions CI: typecheck + tests with Postgres/Redis; `pnpm ci:check`; shared plan unit tests |
@@ -565,6 +566,26 @@ pnpm --filter @memora/api exec tsx scripts/check-eicar.ts
 **Edge — scanner down:** `503 SCANNER_UNAVAILABLE` (set `CLAMAV_SKIP=true` only for local tests without clamd).
 
 **Fail if:** EICAR completes as clean; clean file stays only in quarantine without promotion.
+
+### 2.3 — BullMQ jobs (retries + dead letter)
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build
+pnpm --filter @memora/api start          # API enqueues parse after clean upload
+pnpm --filter @memora/api worker         # separate process (or `dev:worker`)
+
+# Retry + DLQ verification (script boots its own worker)
+pnpm --filter @memora/api exec tsx scripts/check-job-retry.ts
+# → ok retry-then-success attempts=3
+# → ok dead-letter after 5 attempts; dlq depth increases
+```
+
+**Happy path:** clean `complete` inserts `processing_jobs` (stage `parse`, generation 1) and enqueues BullMQ `ingestion`. Worker stub marks job `completed` (real parse in 2.4).
+
+**Edge — retries:** forced failures until attempt 3 still complete. Always-failing `test_fail` → status `dead` after 5 attempts and a row on `ingestion-dlq`.
+
+**Fail if:** no worker picks up jobs; failed jobs never reach DLQ; `(file_version_id, stage, generation)` uniqueness broken.
 
 ---
 

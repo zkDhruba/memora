@@ -6,6 +6,7 @@ import { mfaFactors, recoveryCodes } from "./mfa";
 import { personaMemberships, personas } from "./personas";
 import { plans, subscriptions } from "./plans";
 import { sessions } from "./sessions";
+import { processingJobs } from "./processing-jobs";
 import {
   sourceFiles,
   sourceFileVersions,
@@ -150,10 +151,22 @@ export const sourceFilesRelations = relations(sourceFiles, ({ one, many }) => ({
 
 export const sourceFileVersionsRelations = relations(
   sourceFileVersions,
-  ({ one }) => ({
+  ({ one, many }) => ({
     file: one(sourceFiles, {
       fields: [sourceFileVersions.fileId],
       references: [sourceFiles.id],
     }),
+    processingJobs: many(processingJobs),
   }),
 );
+
+export const processingJobsRelations = relations(processingJobs, ({ one }) => ({
+  persona: one(personas, {
+    fields: [processingJobs.personaId],
+    references: [personas.id],
+  }),
+  fileVersion: one(sourceFileVersions, {
+    fields: [processingJobs.fileVersionId],
+    references: [sourceFileVersions.id],
+  }),
+}));

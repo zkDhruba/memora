@@ -1,0 +1,2 @@
+export const INGESTION_QUEUE_TOKEN = Symbol("INGESTION_QUEUE");
+export const INGESTION_DLQ_TOKEN = Symbol("INGESTION_DLQ");

@@ -72,3 +72,19 @@ export const sourceFileStatusEnum = pgEnum("source_file_status", [
   "deleting",
   "deleted",
 ]);
+
+export const processingJobStatusEnum = pgEnum("processing_job_status", [
+  "pending",
+  "active",
+  "completed",
+  "failed",
+  "dead",
+]);
+
+export const processingJobStageEnum = pgEnum("processing_job_stage", [
+  "parse",
+  "extract",
+  "embed",
+  "purge",
+  "test_fail",
+]);

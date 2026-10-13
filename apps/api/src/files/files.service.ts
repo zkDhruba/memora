@@ -13,6 +13,7 @@ import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
 import { DB } from "../db/db.tokens";
 import { PersonaAccessService } from "../personas/persona-access.service";
+import { IngestionQueueService } from "../jobs/ingestion-queue.service";
 import { ClamavScannerService } from "../scanning/clamav-scanner.service";
 import { ObjectStoreService } from "../storage/object-store.service";
 
@@ -26,10 +27,12 @@ function sanitizeFilename(name: string): string {
 export class FilesService {
   constructor(
     @Inject(DB) private readonly db: MemoraDb,
-    private readonly access: PersonaAccessService,
-    private readonly objects: ObjectStoreService,
-    private readonly scanner: ClamavScannerService,
-    private readonly audit: AuditService,
+    @Inject(PersonaAccessService) private readonly access: PersonaAccessService,
+    @Inject(ObjectStoreService) private readonly objects: ObjectStoreService,
+    @Inject(ClamavScannerService) private readonly scanner: ClamavScannerService,
+    @Inject(IngestionQueueService)
+    private readonly ingestion: IngestionQueueService,
+    @Inject(AuditService) private readonly audit: AuditService,
   ) {}
 
   async createImport(userId: string, personaId: string) {
@@ -283,7 +286,7 @@ export class FilesService {
       await this.upsertVersion(fileId, file.objectKey, file.bucket, {
         scan: "infected",
         signature: scan.signature,
-      });
+      }); // no parse enqueue for infected files
 
       await this.audit.record({
         actorUserId: userId,
@@ -314,8 +317,18 @@ export class FilesService {
       })
       .where(eq(sourceFiles.id, fileId));
 
-    await this.upsertVersion(fileId, promoted.objectKey, promoted.bucket, {
-      scan: "clean",
+    const versionId = await this.upsertVersion(
+      fileId,
+      promoted.objectKey,
+      promoted.bucket,
+      { scan: "clean" },
+    );
+
+    const queued = await this.ingestion.enqueue({
+      personaId,
+      fileVersionId: versionId,
+      stage: "parse",
+      generation: 1,
     });
 
     await this.audit.record({
@@ -328,6 +341,7 @@ export class FilesService {
         objectKey: promoted.objectKey,
         bucket: promoted.bucket,
         scan: "clean",
+        parseJobId: queued.processingJobId,
       },
     });
 
@@ -337,6 +351,7 @@ export class FilesService {
       objectKey: promoted.objectKey,
       bucket: promoted.bucket,
       sha256,
+      processingJobId: queued.processingJobId,
     };
   }
 
@@ -345,7 +360,7 @@ export class FilesService {
     objectKey: string,
     bucket: string,
     parseReport: Record<string, unknown>,
-  ) {
+  ): Promise<string> {
     const existing = await this.db.query.sourceFileVersions.findFirst({
       where: and(
         eq(sourceFileVersions.fileId, fileId),
@@ -357,16 +372,18 @@ export class FilesService {
         .update(sourceFileVersions)
         .set({ objectKey, bucket, parseReport })
         .where(eq(sourceFileVersions.id, existing.id));
-      return;
+      return existing.id;
     }
+    const id = newId();
     await this.db.insert(sourceFileVersions).values({
-      id: newId(),
+      id,
       fileId,
       generation: 1,
       objectKey,
       bucket,
       parseReport,
     });
+    return id;
   }
 
   private async requireHostConsent(personaId: string) {
