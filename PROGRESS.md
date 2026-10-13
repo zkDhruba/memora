@@ -85,7 +85,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 - [x] **2.4** Text + Markdown parser
 - [x] **2.5** DOCX + digital PDF (`needs_ocr` for scanned)
 - [x] **2.6** WhatsApp parser + subject mapping UI
-- [ ] **2.7** Other participants default not retrievable
+- [x] **2.7** Other participants default not retrievable
 
 ### Bite 4 — Chunk and library
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.7 | source_participants.retrieval_allowed; others/unknown false; subject true on map |
 | 2026-10-13 | 2.6 | WhatsApp bracketed+dashed parsers; participants/messages; subject-mapping API+UI |
 | 2026-10-13 | 2.5 | mammoth DOCX→md + unpdf digital PDF; scanned PDF → needs_ocr; fixtures + check-docx-pdf |
 | 2026-10-13 | 2.4 | documents table; UTF-8 text/md parser; parse job writes documents; fixtures + check-parse |
@@ -665,6 +666,24 @@ pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
 **Edge:** media-omitted / encryption lines → `system` messages (not speech). Continuations append to prior body. Contributor cannot map (manager+).
 
 **Fail if:** only one date style parses; mapping leaves others as `unknown`; UI never shows Map subject.
+
+### 2.7 — Other participants not retrievable
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api test
+# → defaultRetrievalAllowed unit + participant-retrieval.integration flag test
+
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
+# → ok subject mapping Alice → subject+retrievable, Bob → other+blocked
+```
+
+**Happy path:** new participants insert with `retrieval_allowed = false`. After subject mapping, subject is `true`; every `other` stays `false` (GOV-2). API `GET …/participants` returns the flag; UI shows “not retrievable”.
+
+**Edge:** remapping a different name flips flags — previous subject becomes other+false; new subject true.
+
+**Fail if:** `other` rows ever default to `retrieval_allowed = true`; chunker later embeds them without checking the flag (guard for 2.8).
 
 ---
 

@@ -1,0 +1,1 @@
+ALTER TABLE "source_participants" ADD COLUMN "retrieval_allowed" boolean DEFAULT false NOT NULL;

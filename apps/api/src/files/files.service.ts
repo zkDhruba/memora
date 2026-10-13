@@ -134,6 +134,7 @@ export class FilesService {
         id: r.id,
         rawLabel: r.rawLabel,
         role: r.role,
+        retrievalAllowed: r.retrievalAllowed,
       })),
     };
   }
@@ -164,7 +165,7 @@ export class FilesService {
 
     await this.db
       .update(sourceParticipants)
-      .set({ role: "other" })
+      .set({ role: "other", retrievalAllowed: false })
       .where(
         and(
           eq(sourceParticipants.fileId, file.id),
@@ -173,7 +174,7 @@ export class FilesService {
       );
     await this.db
       .update(sourceParticipants)
-      .set({ role: "subject" })
+      .set({ role: "subject", retrievalAllowed: true })
       .where(eq(sourceParticipants.id, body.participantId));
 
     await this.db
@@ -220,6 +221,8 @@ export class FilesService {
       subjectParticipantId: body.participantId,
       subjectLabel: participant.rawLabel,
       status: "parsed" as const,
+      subjectRetrievalAllowed: true,
+      othersRetrievalAllowed: false,
     };
   }
 

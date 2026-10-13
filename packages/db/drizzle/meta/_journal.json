@@ -43,6 +43,13 @@
       "when": 1791890009794,
       "tag": "0005_robust_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791890861673,
+      "tag": "0006_tiresome_naoko",
+      "breakpoints": true
     }
   ]
 }

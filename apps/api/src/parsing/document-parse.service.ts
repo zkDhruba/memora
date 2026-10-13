@@ -227,6 +227,8 @@ export class DocumentParseService {
         fileId: input.fileId,
         rawLabel: label,
         role: "unknown",
+        // 2.7 / GOV-2: third-party labels are never retrievable until mapped/granted.
+        retrievalAllowed: false,
       });
     }
 

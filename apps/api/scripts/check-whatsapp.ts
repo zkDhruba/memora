@@ -274,15 +274,25 @@ async function main() {
       if (file?.status !== "parsed" || file.subjectParticipantId !== alice.id) {
         throw new Error("file not marked parsed with subject");
       }
-      const roles = Object.fromEntries(parts.map((p) => [p.rawLabel, p.role]));
-      if (roles.Alice !== "subject" || roles.Bob !== "other") {
-        throw new Error(`roles ${JSON.stringify(roles)}`);
+      const byLabel = Object.fromEntries(
+        parts.map((p) => [p.rawLabel, p]),
+      );
+      if (byLabel.Alice?.role !== "subject" || byLabel.Bob?.role !== "other") {
+        throw new Error(`roles ${JSON.stringify(byLabel)}`);
+      }
+      if (
+        byLabel.Alice?.retrievalAllowed !== true ||
+        byLabel.Bob?.retrievalAllowed !== false
+      ) {
+        throw new Error(
+          `retrieval_allowed expected Alice=true Bob=false, got ${JSON.stringify(byLabel)}`,
+        );
       }
     } finally {
       await client.end({ timeout: 5 });
     }
 
-    console.log("ok subject mapping Alice → subject, Bob → other");
+    console.log("ok subject mapping Alice → subject+retrievable, Bob → other+blocked");
     console.log("whatsapp check passed");
   } finally {
     await worker.close();

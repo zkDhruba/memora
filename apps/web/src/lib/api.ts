@@ -128,4 +128,5 @@ export type SourceParticipant = {
   id: string;
   rawLabel: string;
   role: "subject" | "other" | "unknown";
+  retrievalAllowed: boolean;
 };

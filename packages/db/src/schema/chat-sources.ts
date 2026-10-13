@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -26,6 +27,11 @@ export const sourceParticipants = pgTable(
       .references(() => sourceFiles.id, { onDelete: "cascade" }),
     rawLabel: text("raw_label").notNull(),
     role: sourceParticipantRoleEnum("role").notNull().default("unknown"),
+    /**
+     * GOV-2 / 2.7: only the mapped subject is retrievable by default.
+     * `other` and `unknown` stay false until an owner grants a lawful basis (later).
+     */
+    retrievalAllowed: boolean("retrieval_allowed").notNull().default(false),
     relationshipId: uuid("relationship_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

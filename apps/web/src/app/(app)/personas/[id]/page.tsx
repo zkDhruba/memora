@@ -247,7 +247,13 @@ export default function PersonaDetailPage() {
                   />
                   <span>
                     {p.rawLabel}{" "}
-                    <span className="text-[var(--muted)]">({p.role})</span>
+                    <span className="text-[var(--muted)]">
+                      ({p.role}
+                      {p.retrievalAllowed
+                        ? ", retrievable"
+                        : ", not retrievable"}
+                      )
+                    </span>
                   </span>
                 </label>
               ))}
