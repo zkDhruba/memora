@@ -57,7 +57,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 4 — Shell and Chat picker
 
-- [ ] **1.8** Chat hub + persona switcher (persona appears after create, no publish step)
+- [x] **1.8** Chat hub + persona switcher (persona appears after create, no publish step)
 - [ ] **1.9** Membership checks; strangers get 404
 - [ ] **1.10** Audit log for auth, consent, plan changes
 - [ ] **1.11** App shell: Dashboard \| Chat \| Settings; disclosure on chat placeholder
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 1.8 | Chat hub + persona switcher; disclosure banner; create lands on /chat?persona=; no publish step |
 | 2026-10-13 | 1.7 | Persona CRUD API+UI; attestation; consents; draft→collecting; Free second create PLAN_LIMIT_PERSONAS |
 | 2026-10-13 | 1.6 | PlanGuard + GET /me/plan; assertCanCreatePersona → PLAN_LIMIT_PERSONAS; daily send Redis helpers |
 | 2026-10-12 | 1.5 | TOTP MFA + recovery codes; step-up for logout-all; DELETE /me requires password+MFA; APP_DATA_KEY encrypt |
@@ -407,6 +408,23 @@ curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/personas \
 **Draft until consent:** create without `consents` → `status: draft`, `chatEligible: false`; grant `host_records` + `converse` → `collecting`.
 
 **Fail if:** second Free create succeeds; persona missing from dashboard; stranger `GET /personas/:id` is not 404.
+
+### 1.8 — Chat hub + persona switcher
+
+```bash
+pnpm --filter @memora/api dev
+pnpm --filter @memora/web dev
+```
+
+1. Create a persona (wizard) → you should land on `/chat?persona=<id>`
+2. Left rail lists the new persona (no publish step)
+3. Disclosure banner is visible (“AI simulation… not the real person”)
+4. Open `/chat` from nav — same list via `GET /personas?for=chat`
+5. Soft-deleted / suspended personas must not appear in the switcher
+
+**Empty:** user with zero personas sees CTA to create (or plan-cap copy).
+
+**Fail if:** new persona missing from Chat until some publish action; disclosure missing; composer claims live streaming (it stays disabled until Phase 3).
 
 ---
 

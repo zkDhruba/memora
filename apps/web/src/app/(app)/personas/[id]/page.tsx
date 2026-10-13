@@ -141,6 +141,12 @@ export default function PersonaDetailPage() {
           >
             Save
           </button>
+          <Link
+            href={`/chat?persona=${encodeURIComponent(persona.id)}`}
+            className="rounded-md border border-[var(--border)] px-4 py-2 text-sm font-medium"
+          >
+            Open in Chat
+          </Link>
           {persona.role === "owner" ? (
             <button
               type="button"

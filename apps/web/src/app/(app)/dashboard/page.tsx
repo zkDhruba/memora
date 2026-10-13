@@ -86,20 +86,28 @@ export default function DashboardPage() {
       ) : (
         <ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)] bg-[var(--surface)]">
           {personas.map((p) => (
-            <li key={p.id}>
-              <Link
-                href={`/personas/${p.id}`}
-                className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-[var(--background)]/60"
-              >
-                <div>
-                  <p className="font-medium">{p.displayName}</p>
-                  <p className="text-xs text-[var(--muted)]">
-                    {p.scenario} · {p.status} · {p.role}
-                    {p.chatEligible ? " · chat ready" : " · needs consent"}
-                  </p>
-                </div>
-                <span className="text-sm text-[var(--accent)]">Open</span>
+            <li
+              key={p.id}
+              className="flex items-center justify-between gap-4 px-4 py-4 hover:bg-[var(--background)]/60"
+            >
+              <Link href={`/personas/${p.id}`} className="min-w-0 flex-1">
+                <p className="font-medium">{p.displayName}</p>
+                <p className="text-xs text-[var(--muted)]">
+                  {p.scenario} · {p.status} · {p.role}
+                  {p.chatEligible ? " · chat ready" : " · needs consent"}
+                </p>
               </Link>
+              <div className="flex shrink-0 items-center gap-3 text-sm">
+                <Link
+                  href={`/chat?persona=${encodeURIComponent(p.id)}`}
+                  className="text-[var(--muted)] hover:text-[var(--accent)]"
+                >
+                  Chat
+                </Link>
+                <Link href={`/personas/${p.id}`} className="text-[var(--accent)]">
+                  Open
+                </Link>
+              </div>
             </li>
           ))}
         </ul>

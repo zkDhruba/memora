@@ -62,6 +62,6 @@ Track progress in [PROGRESS.md](PROGRESS.md). **Golden rule:** every finished ta
 
 ## Status
 
-Phase **1** Bite 3 complete through **1.7** (persona CRUD + dashboard). Next: Chat picker / shell (1.8+). Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
+Phase **1** through **1.8** (Chat hub + persona switcher). Next: membership/audit/shell polish (1.9–1.12). Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
 
 This plan is engineering guidance. It is not legal advice. Deployment in Bangladesh or any other jurisdiction needs counsel review against [docs/14-security-privacy-consent.md](docs/14-security-privacy-consent.md).

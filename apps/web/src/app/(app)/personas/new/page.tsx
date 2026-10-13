@@ -65,7 +65,8 @@ export default function NewPersonaPage() {
           providerKey: consentProvider ? "anthropic" : undefined,
         }),
       });
-      router.push(`/personas/${persona.id}`);
+      // No publish step — land in Chat hub with the new persona selected.
+      router.push(`/chat?persona=${encodeURIComponent(persona.id)}`);
     } catch (err) {
       const e = err as { message: string; code?: string; details?: Record<string, unknown> };
       if (e.code === "PLAN_LIMIT_PERSONAS") {
@@ -90,8 +91,8 @@ export default function NewPersonaPage() {
           Create persona
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Attestation and consent are required. The persona appears on your
-          dashboard and in Chat immediately (send still needs converse consent).
+          Attestation and consent are required. After create you go straight to
+          Chat — there is no publish step (send still needs converse consent).
         </p>
       </div>
 
