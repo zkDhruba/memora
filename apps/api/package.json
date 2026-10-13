@@ -9,7 +9,8 @@
     "start:prod": "node dist/main.js",
     "lint": "echo \"no lint configured yet\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "echo \"no tests yet\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
     "@types/nodemailer": "^8.0.2",
     "@types/uuid": "^11.0.0",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.4"
   }
 }

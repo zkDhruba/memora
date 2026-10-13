@@ -17,6 +17,7 @@ import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
 import { DB } from "../db/db.tokens";
 import { PlanGuardService } from "../plans/plan-guard.service";
+import { PersonaAccessService } from "./persona-access.service";
 
 export type PersonaListItem = {
   id: string;
@@ -37,6 +38,7 @@ export class PersonasService {
     @Inject(DB) private readonly db: MemoraDb,
     private readonly planGuard: PlanGuardService,
     private readonly audit: AuditService,
+    private readonly access: PersonaAccessService,
   ) {}
 
   async listForUser(
@@ -81,16 +83,20 @@ export class PersonasService {
   }
 
   async getOne(userId: string, personaId: string) {
-    const membership = await this.requireMembership(userId, personaId);
+    const { membership } = await this.access.requireMember(userId, personaId);
     const persona = await this.db.query.personas.findFirst({
-      where: eq(personas.id, personaId),
+      where: and(eq(personas.id, personaId), isNull(personas.deletedAt)),
       with: {
         attestations: true,
         consents: true,
       },
     });
-    if (!persona || persona.deletedAt) {
-      throw this.notFound();
+    if (!persona) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "PERSONA_NOT_FOUND",
+        "Persona not found.",
+      );
     }
 
     const activeConsents = persona.consents.filter((c) => !c.revokedAt);
@@ -211,19 +217,7 @@ export class PersonasService {
   }
 
   async update(userId: string, personaId: string, body: UpdatePersonaBody) {
-    const membership = await this.requireMembership(userId, personaId);
-    if (membership.role !== "owner" && membership.role !== "manager") {
-      throw new ApiException(
-        HttpStatus.FORBIDDEN,
-        "PERSONA_FORBIDDEN",
-        "Only owners and managers can update this persona.",
-      );
-    }
-
-    const persona = await this.db.query.personas.findFirst({
-      where: and(eq(personas.id, personaId), isNull(personas.deletedAt)),
-    });
-    if (!persona) throw this.notFound();
+    await this.access.requireOwnerOrManager(userId, personaId);
 
     await this.db
       .update(personas)
@@ -256,19 +250,7 @@ export class PersonasService {
   }
 
   async softDelete(userId: string, personaId: string) {
-    const membership = await this.requireMembership(userId, personaId);
-    if (membership.role !== "owner") {
-      throw new ApiException(
-        HttpStatus.FORBIDDEN,
-        "PERSONA_FORBIDDEN",
-        "Only the owner can delete this persona.",
-      );
-    }
-
-    const persona = await this.db.query.personas.findFirst({
-      where: and(eq(personas.id, personaId), isNull(personas.deletedAt)),
-    });
-    if (!persona) throw this.notFound();
+    await this.access.requireOwner(userId, personaId);
 
     await this.db
       .update(personas)
@@ -285,7 +267,7 @@ export class PersonasService {
   }
 
   async listConsents(userId: string, personaId: string) {
-    await this.requireOwner(userId, personaId);
+    await this.access.requireOwner(userId, personaId);
     const rows = await this.db.query.consents.findMany({
       where: and(eq(consents.personaId, personaId), isNull(consents.revokedAt)),
       orderBy: [desc(consents.grantedAt)],
@@ -306,11 +288,7 @@ export class PersonasService {
     personaId: string,
     body: ConsentGrantBody,
   ) {
-    await this.requireOwner(userId, personaId);
-    const persona = await this.db.query.personas.findFirst({
-      where: and(eq(personas.id, personaId), isNull(personas.deletedAt)),
-    });
-    if (!persona) throw this.notFound();
+    await this.access.requireOwner(userId, personaId);
 
     // Revoke any existing active consent for same purpose+provider, then insert.
     await this.db
@@ -357,7 +335,7 @@ export class PersonasService {
     personaId: string,
     consentId: string,
   ) {
-    await this.requireOwner(userId, personaId);
+    await this.access.requireOwner(userId, personaId);
     const row = await this.db.query.consents.findFirst({
       where: and(
         eq(consents.id, consentId),
@@ -407,29 +385,6 @@ export class PersonasService {
     }
   }
 
-  private async requireMembership(userId: string, personaId: string) {
-    const membership = await this.db.query.personaMemberships.findFirst({
-      where: and(
-        eq(personaMemberships.personaId, personaId),
-        eq(personaMemberships.userId, userId),
-      ),
-    });
-    if (!membership) throw this.notFound();
-    return membership;
-  }
-
-  private async requireOwner(userId: string, personaId: string) {
-    const membership = await this.requireMembership(userId, personaId);
-    if (membership.role !== "owner") {
-      throw new ApiException(
-        HttpStatus.FORBIDDEN,
-        "PERSONA_FORBIDDEN",
-        "Only the owner can manage consents.",
-      );
-    }
-    return membership;
-  }
-
   private async activeConversePersonaIds(
     personaIds: string[],
   ): Promise<Set<string>> {
@@ -455,13 +410,5 @@ export class PersonasService {
     if (deletedAt) return false;
     if (status === "suspended" || status === "deleting") return false;
     return hasConverseConsent;
-  }
-
-  private notFound() {
-    return new ApiException(
-      HttpStatus.NOT_FOUND,
-      "PERSONA_NOT_FOUND",
-      "Persona not found.",
-    );
   }
 }
