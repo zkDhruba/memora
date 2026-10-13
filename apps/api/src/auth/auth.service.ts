@@ -72,6 +72,13 @@ export class AuthService {
       targetType: "user",
       targetId: userId,
     });
+    await this.audit.record({
+      actorUserId: userId,
+      action: "plan.change",
+      targetType: "user",
+      targetId: userId,
+      metadata: { from: null, to: "free", reason: "signup" },
+    });
 
     return { userId };
   }

@@ -213,6 +213,21 @@ export class PersonasService {
       metadata: { scenario: body.scenario, status },
     });
 
+    for (const grant of initialConsents) {
+      await this.audit.record({
+        actorUserId: userId,
+        personaId,
+        action: "consent.grant",
+        targetType: "consent",
+        targetId: personaId,
+        metadata: {
+          purpose: grant.purpose,
+          statementVersion: grant.statementVersion,
+          via: "persona.create",
+        },
+      });
+    }
+
     return this.getOne(userId, personaId);
   }
 

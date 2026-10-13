@@ -6,6 +6,7 @@ import {
 } from "@memora/db";
 import { and, eq, isNull } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
+import { AuditService } from "../auth/audit.service";
 import { DB } from "../db/db.tokens";
 
 export type MembershipRole =
@@ -25,11 +26,14 @@ export type PersonaAccess = {
  * - Strangers (no membership): always 404 PERSONA_NOT_FOUND (do not leak existence).
  * - Soft-deleted personas: 404 for normal reads/actions.
  * - Members lacking the required role: 403 PERSONA_FORBIDDEN
- *   (they already know the persona id).
+ *   (they already know the persona id). Audited as authz.denied (NFR-3).
  */
 @Injectable()
 export class PersonaAccessService {
-  constructor(@Inject(DB) private readonly db: MemoraDb) {}
+  constructor(
+    @Inject(DB) private readonly db: MemoraDb,
+    @Inject(AuditService) private readonly audit: AuditService,
+  ) {}
 
   async requireMember(
     userId: string,
@@ -50,6 +54,18 @@ export class PersonaAccessService {
   ): Promise<PersonaAccess> {
     const access = await this.requireMember(userId, personaId);
     if (!roles.includes(access.membership.role as MembershipRole)) {
+      await this.audit.record({
+        actorUserId: userId,
+        personaId,
+        action: "authz.denied",
+        targetType: "persona",
+        targetId: personaId,
+        metadata: {
+          code: "PERSONA_FORBIDDEN",
+          role: access.membership.role,
+          required: [...roles],
+        },
+      });
       throw new ApiException(
         HttpStatus.FORBIDDEN,
         "PERSONA_FORBIDDEN",

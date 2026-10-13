@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Query,
   Res,
   UseGuards,
 } from "@nestjs/common";
@@ -21,18 +22,29 @@ import { clearSessionCookie } from "./session-cookie";
 import { SessionGuard } from "./session.guard";
 
 @Controller("me")
+@UseGuards(SessionGuard)
 export class MeController {
   constructor(private readonly me: MeService) {}
 
   @Get()
-  @UseGuards(SessionGuard)
   getMe(@CurrentAuth() auth: AuthContext) {
     return this.me.getMe(auth.user);
   }
 
+  /** Recent audit events where this user was the actor. */
+  @Get("audit")
+  listAudit(
+    @CurrentAuth() auth: AuthContext,
+    @Query("limit") limitRaw?: string,
+  ) {
+    const parsed = limitRaw ? Number(limitRaw) : undefined;
+    const limit =
+      parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined;
+    return this.me.listAudit(auth.user.id, limit);
+  }
+
   @Delete()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SessionGuard)
   async deleteMe(
     @CurrentAuth() auth: AuthContext,
     @Body(new ZodValidationPipe(deleteMeBodySchema)) body: DeleteMeBody,

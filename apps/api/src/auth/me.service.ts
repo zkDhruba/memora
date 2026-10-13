@@ -49,6 +49,11 @@ export class MeService {
     };
   }
 
+  async listAudit(userId: string, limit?: number) {
+    const data = await this.audit.listForActor(userId, { limit });
+    return { data };
+  }
+
   /**
    * Account delete (step-up): password required; MFA code required when enabled.
    * Soft-disables the account and revokes sessions (full erasure job comes later).

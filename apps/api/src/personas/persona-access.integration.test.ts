@@ -44,10 +44,10 @@ describe("Persona membership access (integration)", () => {
     db = bundle.db;
     client = bundle.client;
 
-    access = new PersonaAccessService(db);
     const audit = {
       record: async () => undefined,
     } as unknown as AuditService;
+    access = new PersonaAccessService(db, audit);
     const planGuard = {} as PlanGuardService;
     personasService = new PersonasService(db, planGuard, audit, access);
 

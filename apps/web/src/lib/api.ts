@@ -71,6 +71,16 @@ export type PlanResponse = {
   overLimit: boolean;
 };
 
+export type AuditLogItem = {
+  id: string;
+  action: string;
+  personaId: string | null;
+  targetType: string | null;
+  targetId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type PersonaListItem = {
   id: string;
   displayName: string;

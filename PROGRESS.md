@@ -59,7 +59,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 - [x] **1.8** Chat hub + persona switcher (persona appears after create, no publish step)
 - [x] **1.9** Membership checks; strangers get 404
-- [ ] **1.10** Audit log for auth, consent, plan changes
+- [x] **1.10** Audit log for auth, consent, plan changes
 - [ ] **1.11** App shell: Dashboard \| Chat \| Settings; disclosure on chat placeholder
 - [ ] **1.12** CI: typecheck + unit tests green
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 1.10 | Audit inserts (auth/consent/plan.change/authz.denied); GET /me/audit; Settings activity list; change-plan script |
 | 2026-10-13 | 1.9 | PersonaAccessService: strangers → 404 PERSONA_NOT_FOUND; wrong role → 403; vitest + HTTP check |
 | 2026-10-13 | 1.8 | Chat hub + persona switcher; disclosure banner; create lands on /chat?persona=; no publish step |
 | 2026-10-13 | 1.7 | Persona CRUD API+UI; attestation; consents; draft→collecting; Free second create PLAN_LIMIT_PERSONAS |
@@ -449,6 +450,36 @@ pnpm --filter @memora/api exec tsx scripts/check-persona-access.ts
 **Edge — wrong role:** Participant `DELETE /personas/:id` or `GET .../consents` → `403 PERSONA_FORBIDDEN`.
 
 **Fail if:** stranger gets 403 (existence leak) or 200; participant can soft-delete or list consents.
+
+### 1.10 — Audit log (auth, consent, plan changes)
+
+```bash
+pnpm deps:up && pnpm db:migrate && pnpm db:seed
+pnpm --filter @memora/api test
+# → includes audit.integration.test.ts (plan.change + listForActor)
+
+pnpm --filter @memora/api build && pnpm --filter @memora/api start   # :4000
+pnpm --filter @memora/web dev                                       # :3000
+```
+
+**Happy path (API)** — after register/verify/login (`$JAR`, `$USER_ID`):
+
+```bash
+curl -sS -b "$JAR" 'http://localhost:4000/api/v1/me/audit?limit=20'
+# → data[] includes auth.register, plan.change (signup → free), auth.login
+
+pnpm --filter @memora/api exec tsx scripts/change-plan.ts "$USER_ID" pro "manual-upgrade"
+curl -sS -b "$JAR" 'http://localhost:4000/api/v1/me/audit?limit=5'
+# → newest plan.change metadata.from=free metadata.to=pro
+
+# Consent: create persona with consents (or grant) → consent.grant rows appear
+```
+
+**Frontend:** Settings → **Recent activity** lists the same events (`GET /me/audit`).
+
+**Edge:** Participant denied an owner action → `authz.denied` row for that actor (NFR-3). Stranger 404 is not audited (no existence leak).
+
+**Fail if:** `/me/audit` empty after login; plan change script does not insert `plan.change`; Settings activity missing after auth actions.
 
 ---
 
