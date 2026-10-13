@@ -27,7 +27,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 | --- | --- | --- | --- |
 | 0 | Planning / docs | done | Architecture docs complete |
 | 1 | Platform foundation | done | Auth, plans, personas, audit, shell, CI |
-| 2 | Ingestion | todo | Upload, parse, chunk, additive feeds |
+| 2 | Ingestion | in_progress | Upload, parse, chunk, additive feeds |
 | 3 | AI persona (MVP) | todo | Review, RAG, streaming chat, quotas |
 | 4 | Personality / relationships | todo | After MVP |
 | 5 | Images | todo | No voice |
@@ -69,11 +69,11 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ## Phase 2 — Ingestion
 
-**Phase status:** `todo`
+**Phase status:** `in_progress`
 
 ### Bite 1 — Upload
 
-- [ ] **2.1** File/import tables, presign, complete → quarantine object
+- [x] **2.1** File/import tables, presign, complete → quarantine object
 - [ ] **2.2** ClamAV scan; EICAR rejected
 
 ### Bite 2 — Jobs
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.1 | source_imports/files/versions; S3 presign PUT → quarantine; complete + HeadObject; CONSENT_REQUIRED |
 | 2026-10-13 | 1.12 | GitHub Actions CI: typecheck + tests with Postgres/Redis; `pnpm ci:check`; shared plan unit tests |
 | 2026-10-13 | 1.11 | App shell polish: Log out, skip link, EmptyState, chat listbox ↑/↓, disclosure; Settings logout-all |
 | 2026-10-13 | 1.10 | Audit inserts (auth/consent/plan.change/authz.denied); GET /me/audit; Settings activity list; change-plan script |
@@ -517,6 +518,31 @@ pnpm ci:check
 **Edge:** without `DATABASE_URL` / Postgres, `@memora/api` integration tests fail (expected). Shared unit tests still run.
 
 **Fail if:** workflow missing; lockfile drift breaks `--frozen-lockfile`; typecheck or tests red on PR.
+
+### 2.1 — Presign upload → quarantine
+
+```bash
+pnpm deps:up && pnpm db:migrate && pnpm db:seed
+pnpm --filter @memora/api build && pnpm --filter @memora/api start   # :4000
+
+pnpm --filter @memora/api exec tsx scripts/check-upload.ts
+# → PUT ok 200; complete status uploaded; quarantine head ContentLength > 0
+# → complete without PUT → FILE_NOT_UPLOADED
+```
+
+**API happy path** (after login + persona with `host_records` consent):
+
+```bash
+# POST /personas/:id/imports → { id }
+# POST /personas/:id/files/presign { importId, filename, mediaType, byteSize }
+#   → { fileId, url, headers }  (presigned PUT to memora-quarantine)
+# PUT $url with those headers and body
+# POST /personas/:id/files/:fileId/complete { sha256? } → status uploaded
+```
+
+**Edge:** no `host_records` → `422 CONSENT_REQUIRED`. Unsupported MIME → `400` validation. Complete before PUT → `400 FILE_NOT_UPLOADED`.
+
+**Fail if:** object missing from quarantine after complete; API proxies file bytes; participant can presign.
 
 ---
 

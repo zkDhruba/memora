@@ -54,3 +54,21 @@ export const attestationStatusEnum = pgEnum("attestation_status", [
   "declared",
   "disputed",
 ]);
+
+export const sourceImportStatusEnum = pgEnum("source_import_status", [
+  "open",
+  "closed",
+  "failed",
+]);
+
+export const sourceFileStatusEnum = pgEnum("source_file_status", [
+  "pending_upload",
+  "uploaded",
+  "clean",
+  "infected",
+  "parsed",
+  "needs_attention",
+  "ready",
+  "deleting",
+  "deleted",
+]);

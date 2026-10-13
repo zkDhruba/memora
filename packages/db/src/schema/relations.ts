@@ -6,6 +6,11 @@ import { mfaFactors, recoveryCodes } from "./mfa";
 import { personaMemberships, personas } from "./personas";
 import { plans, subscriptions } from "./plans";
 import { sessions } from "./sessions";
+import {
+  sourceFiles,
+  sourceFileVersions,
+  sourceImports,
+} from "./sources";
 import { users } from "./users";
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -52,6 +57,8 @@ export const personasRelations = relations(personas, ({ one, many }) => ({
   memberships: many(personaMemberships),
   consents: many(consents),
   attestations: many(authorizationAttestations),
+  sourceImports: many(sourceImports),
+  sourceFiles: many(sourceFiles),
 }));
 
 export const authorizationAttestationsRelations = relations(
@@ -109,3 +116,44 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+export const sourceImportsRelations = relations(
+  sourceImports,
+  ({ one, many }) => ({
+    persona: one(personas, {
+      fields: [sourceImports.personaId],
+      references: [personas.id],
+    }),
+    createdBy: one(users, {
+      fields: [sourceImports.createdByUserId],
+      references: [users.id],
+    }),
+    files: many(sourceFiles),
+  }),
+);
+
+export const sourceFilesRelations = relations(sourceFiles, ({ one, many }) => ({
+  persona: one(personas, {
+    fields: [sourceFiles.personaId],
+    references: [personas.id],
+  }),
+  import: one(sourceImports, {
+    fields: [sourceFiles.importId],
+    references: [sourceImports.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [sourceFiles.uploadedByUserId],
+    references: [users.id],
+  }),
+  versions: many(sourceFileVersions),
+}));
+
+export const sourceFileVersionsRelations = relations(
+  sourceFileVersions,
+  ({ one }) => ({
+    file: one(sourceFiles, {
+      fields: [sourceFileVersions.fileId],
+      references: [sourceFiles.id],
+    }),
+  }),
+);

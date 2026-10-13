@@ -20,4 +20,20 @@ export const env = {
   /** Passphrase or base64(32 bytes). Used for MFA secret encryption. */
   appDataKey: () =>
     required("APP_DATA_KEY", "memora-local-app-data-key-dev-only"),
+
+  s3: {
+    endpoint: () => required("S3_ENDPOINT", "http://localhost:9000"),
+    /** Browser-facing endpoint (defaults to S3_ENDPOINT). */
+    publicEndpoint: () =>
+      process.env.S3_PUBLIC_ENDPOINT ??
+      required("S3_ENDPOINT", "http://localhost:9000"),
+    region: () => process.env.S3_REGION ?? "us-east-1",
+    accessKey: () => required("S3_ACCESS_KEY", "memora"),
+    secretKey: () => required("S3_SECRET_KEY", "memoradevpass"),
+    quarantineBucket: () =>
+      required("S3_BUCKET_QUARANTINE", "memora-quarantine"),
+    cleanBucket: () => required("S3_BUCKET_CLEAN", "memora-clean"),
+    forcePathStyle: () =>
+      (process.env.S3_FORCE_PATH_STYLE ?? "true").toLowerCase() !== "false",
+  },
 };

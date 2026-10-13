@@ -86,6 +86,18 @@ export class PersonaAccessService {
     return this.requireRoles(userId, personaId, ["owner", "manager"]);
   }
 
+  /** Owner, manager, or contributor — upload / library write path. */
+  async requireContributor(
+    userId: string,
+    personaId: string,
+  ): Promise<PersonaAccess> {
+    return this.requireRoles(userId, personaId, [
+      "owner",
+      "manager",
+      "contributor",
+    ]);
+  }
+
   /** True if the user has any membership on an active (non-deleted) persona. */
   async isMember(userId: string, personaId: string): Promise<boolean> {
     try {
