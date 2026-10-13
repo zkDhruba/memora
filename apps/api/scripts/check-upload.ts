@@ -178,7 +178,15 @@ async function main() {
   if (!done.ok) {
     throw new Error(`complete: ${done.status} ${await done.text()}`);
   }
-  console.log("complete", JSON.stringify(await done.json()));
+  const completed = (await done.json()) as {
+    status: string;
+    bucket: string;
+    objectKey: string;
+  };
+  console.log("complete", JSON.stringify(completed));
+  if (completed.status !== "clean") {
+    throw new Error(`expected status clean, got ${completed.status}`);
+  }
 
   const client = new S3Client({
     region: process.env.S3_REGION ?? "us-east-1",
@@ -189,13 +197,14 @@ async function main() {
       secretAccessKey: process.env.S3_SECRET_KEY ?? "memoradevpass",
     },
   });
+  // Clean file should live in clean bucket, not quarantine.
   const head = await client.send(
     new HeadObjectCommand({
-      Bucket: pre.bucket,
-      Key: pre.objectKey,
+      Bucket: completed.bucket,
+      Key: completed.objectKey,
     }),
   );
-  console.log("quarantine head ContentLength", head.ContentLength);
+  console.log("clean head ContentLength", head.ContentLength, completed.bucket);
 
   // Edge: complete without PUT → FILE_NOT_UPLOADED
   const imp2 = await fetch(`${API}/api/v1/personas/${personaId}/imports`, {

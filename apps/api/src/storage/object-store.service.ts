@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -8,6 +11,17 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
 
 const PRESIGN_TTL_SEC = 10 * 60;
+
+async function streamToBuffer(
+  body: AsyncIterable<Uint8Array> | undefined,
+): Promise<Buffer> {
+  if (!body) return Buffer.alloc(0);
+  const chunks: Buffer[] = [];
+  for await (const chunk of body) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
 
 @Injectable()
 export class ObjectStoreService {
@@ -27,6 +41,10 @@ export class ObjectStoreService {
 
   quarantineBucket(): string {
     return env.s3.quarantineBucket();
+  }
+
+  cleanBucket(): string {
+    return env.s3.cleanBucket();
   }
 
   /**
@@ -49,7 +67,6 @@ export class ObjectStoreService {
       expiresIn: PRESIGN_TTL_SEC,
     });
 
-    // Rewrite host for browser if public endpoint differs (rare locally).
     const internal = env.s3.endpoint().replace(/\/$/, "");
     const pub = env.s3.publicEndpoint().replace(/\/$/, "");
     if (internal !== pub) {
@@ -90,5 +107,42 @@ export class ObjectStoreService {
       }
       throw err;
     }
+  }
+
+  async getQuarantineObject(objectKey: string): Promise<Buffer> {
+    const out = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.quarantineBucket(),
+        Key: objectKey,
+      }),
+    );
+    return streamToBuffer(out.Body as AsyncIterable<Uint8Array> | undefined);
+  }
+
+  async deleteQuarantineObject(objectKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.quarantineBucket(),
+        Key: objectKey,
+      }),
+    );
+  }
+
+  /** Copy quarantine → clean (same key), then delete quarantine object. */
+  async promoteQuarantineToClean(objectKey: string): Promise<{
+    bucket: string;
+    objectKey: string;
+  }> {
+    const clean = this.cleanBucket();
+    const quarantine = this.quarantineBucket();
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: clean,
+        Key: objectKey,
+        CopySource: `${quarantine}/${objectKey}`,
+      }),
+    );
+    await this.deleteQuarantineObject(objectKey);
+    return { bucket: clean, objectKey };
   }
 }

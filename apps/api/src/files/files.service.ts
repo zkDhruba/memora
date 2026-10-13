@@ -13,6 +13,7 @@ import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
 import { DB } from "../db/db.tokens";
 import { PersonaAccessService } from "../personas/persona-access.service";
+import { ClamavScannerService } from "../scanning/clamav-scanner.service";
 import { ObjectStoreService } from "../storage/object-store.service";
 
 function sanitizeFilename(name: string): string {
@@ -27,6 +28,7 @@ export class FilesService {
     @Inject(DB) private readonly db: MemoraDb,
     private readonly access: PersonaAccessService,
     private readonly objects: ObjectStoreService,
+    private readonly scanner: ClamavScannerService,
     private readonly audit: AuditService,
   ) {}
 
@@ -242,32 +244,78 @@ export class FilesService {
       }
     }
 
-    const versionId = newId();
-    await this.db.transaction(async (tx) => {
-      await tx
+    let bytes: Buffer;
+    try {
+      bytes = await this.objects.getQuarantineObject(file.objectKey);
+    } catch (err) {
+      throw new ApiException(
+        HttpStatus.BAD_REQUEST,
+        "FILE_NOT_UPLOADED",
+        "Could not read quarantine object for scanning.",
+        { cause: (err as Error).message },
+      );
+    }
+
+    let scan;
+    try {
+      scan = await this.scanner.scanBuffer(bytes);
+    } catch (err) {
+      throw new ApiException(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "SCANNER_UNAVAILABLE",
+        "Virus scanner is unavailable. Try again shortly.",
+        { cause: (err as Error).message },
+      );
+    }
+
+    const sha256 = body.sha256?.toLowerCase() ?? file.sha256;
+
+    if (!scan.clean) {
+      await this.objects.deleteQuarantineObject(file.objectKey).catch(() => {
+        // best-effort delete
+      });
+
+      await this.db
         .update(sourceFiles)
-        .set({
-          status: "uploaded",
-          sha256: body.sha256?.toLowerCase() ?? file.sha256,
-        })
+        .set({ status: "infected", sha256 })
         .where(eq(sourceFiles.id, fileId));
 
-      const existingVersion = await tx.query.sourceFileVersions.findFirst({
-        where: and(
-          eq(sourceFileVersions.fileId, fileId),
-          eq(sourceFileVersions.generation, 1),
-        ),
+      await this.upsertVersion(fileId, file.objectKey, file.bucket, {
+        scan: "infected",
+        signature: scan.signature,
       });
-      if (!existingVersion) {
-        await tx.insert(sourceFileVersions).values({
-          id: versionId,
-          fileId,
-          generation: 1,
-          objectKey: file.objectKey,
-          bucket: file.bucket,
-          parseReport: { scan: "pending" },
-        });
-      }
+
+      await this.audit.record({
+        actorUserId: userId,
+        personaId,
+        action: "file.scan_infected",
+        targetType: "source_file",
+        targetId: fileId,
+        metadata: { signature: scan.signature },
+      });
+
+      throw new ApiException(
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        "FILE_INFECTED",
+        "Upload rejected: malware detected.",
+        { signature: scan.signature },
+      );
+    }
+
+    const promoted = await this.objects.promoteQuarantineToClean(file.objectKey);
+
+    await this.db
+      .update(sourceFiles)
+      .set({
+        status: "clean",
+        sha256,
+        bucket: promoted.bucket,
+        objectKey: promoted.objectKey,
+      })
+      .where(eq(sourceFiles.id, fileId));
+
+    await this.upsertVersion(fileId, promoted.objectKey, promoted.bucket, {
+      scan: "clean",
     });
 
     await this.audit.record({
@@ -277,19 +325,48 @@ export class FilesService {
       targetType: "source_file",
       targetId: fileId,
       metadata: {
-        objectKey: file.objectKey,
-        bucket: file.bucket,
-        scan: "pending",
+        objectKey: promoted.objectKey,
+        bucket: promoted.bucket,
+        scan: "clean",
       },
     });
 
     return {
       id: fileId,
-      status: "uploaded" as const,
-      objectKey: file.objectKey,
-      bucket: file.bucket,
-      sha256: body.sha256?.toLowerCase() ?? file.sha256,
+      status: "clean" as const,
+      objectKey: promoted.objectKey,
+      bucket: promoted.bucket,
+      sha256,
     };
+  }
+
+  private async upsertVersion(
+    fileId: string,
+    objectKey: string,
+    bucket: string,
+    parseReport: Record<string, unknown>,
+  ) {
+    const existing = await this.db.query.sourceFileVersions.findFirst({
+      where: and(
+        eq(sourceFileVersions.fileId, fileId),
+        eq(sourceFileVersions.generation, 1),
+      ),
+    });
+    if (existing) {
+      await this.db
+        .update(sourceFileVersions)
+        .set({ objectKey, bucket, parseReport })
+        .where(eq(sourceFileVersions.id, existing.id));
+      return;
+    }
+    await this.db.insert(sourceFileVersions).values({
+      id: newId(),
+      fileId,
+      generation: 1,
+      objectKey,
+      bucket,
+      parseReport,
+    });
   }
 
   private async requireHostConsent(personaId: string) {

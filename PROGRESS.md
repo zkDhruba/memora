@@ -74,7 +74,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 1 — Upload
 
 - [x] **2.1** File/import tables, presign, complete → quarantine object
-- [ ] **2.2** ClamAV scan; EICAR rejected
+- [x] **2.2** ClamAV scan; EICAR rejected
 
 ### Bite 2 — Jobs
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.2 | ClamAV INSTREAM on complete; clean→memora-clean; EICAR→FILE_INFECTED + quarantine delete |
 | 2026-10-13 | 2.1 | source_imports/files/versions; S3 presign PUT → quarantine; complete + HeadObject; CONSENT_REQUIRED |
 | 2026-10-13 | 1.12 | GitHub Actions CI: typecheck + tests with Postgres/Redis; `pnpm ci:check`; shared plan unit tests |
 | 2026-10-13 | 1.11 | App shell polish: Log out, skip link, EmptyState, chat listbox ↑/↓, disclosure; Settings logout-all |
@@ -543,6 +544,27 @@ pnpm --filter @memora/api exec tsx scripts/check-upload.ts
 **Edge:** no `host_records` → `422 CONSENT_REQUIRED`. Unsupported MIME → `400` validation. Complete before PUT → `400 FILE_NOT_UPLOADED`.
 
 **Fail if:** object missing from quarantine after complete; API proxies file bytes; participant can presign.
+
+### 2.2 — ClamAV scan (EICAR rejected)
+
+```bash
+pnpm deps:up   # clamav healthy on :3310
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+
+# Clean file → status clean, object in memora-clean
+pnpm --filter @memora/api exec tsx scripts/check-upload.ts
+
+# EICAR → 422 FILE_INFECTED, quarantine object deleted
+pnpm --filter @memora/api exec tsx scripts/check-eicar.ts
+```
+
+**Happy path:** `complete` after PUT scans via clamd INSTREAM → `status: clean`, bucket `memora-clean`.
+
+**Edge — EICAR:** upload the standard EICAR string → `422` `FILE_INFECTED` (signature in details); file row `infected`; quarantine key gone.
+
+**Edge — scanner down:** `503 SCANNER_UNAVAILABLE` (set `CLAMAV_SKIP=true` only for local tests without clamd).
+
+**Fail if:** EICAR completes as clean; clean file stays only in quarantine without promotion.
 
 ---
 

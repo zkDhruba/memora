@@ -36,4 +36,13 @@ export const env = {
     forcePathStyle: () =>
       (process.env.S3_FORCE_PATH_STYLE ?? "true").toLowerCase() !== "false",
   },
+
+  clamav: {
+    host: () => process.env.CLAMAV_HOST ?? "localhost",
+    port: () => Number(process.env.CLAMAV_PORT ?? 3310),
+    /** Skip real clamd (tests only). Never use in production. */
+    skip: () =>
+      (process.env.CLAMAV_SKIP ?? "").toLowerCase() === "true" ||
+      (process.env.CLAMAV_SKIP ?? "") === "1",
+  },
 };

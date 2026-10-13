@@ -7,6 +7,7 @@ import { MailModule } from "./mail/mail.module";
 import { PersonasModule } from "./personas/personas.module";
 import { PlansModule } from "./plans/plans.module";
 import { RedisModule } from "./redis/redis.module";
+import { ScanningModule } from "./scanning/scanning.module";
 import { StorageModule } from "./storage/storage.module";
 
 @Module({
@@ -15,6 +16,7 @@ import { StorageModule } from "./storage/storage.module";
     RedisModule,
     MailModule,
     StorageModule,
+    ScanningModule,
     AuthModule,
     PlansModule,
     PersonasModule,
