@@ -6,6 +6,7 @@ import { mfaFactors, recoveryCodes } from "./mfa";
 import { personaMemberships, personas } from "./personas";
 import { plans, subscriptions } from "./plans";
 import { sessions } from "./sessions";
+import { documents } from "./documents";
 import { processingJobs } from "./processing-jobs";
 import {
   sourceFiles,
@@ -60,6 +61,7 @@ export const personasRelations = relations(personas, ({ one, many }) => ({
   attestations: many(authorizationAttestations),
   sourceImports: many(sourceImports),
   sourceFiles: many(sourceFiles),
+  documents: many(documents),
 }));
 
 export const authorizationAttestationsRelations = relations(
@@ -157,8 +159,23 @@ export const sourceFileVersionsRelations = relations(
       references: [sourceFiles.id],
     }),
     processingJobs: many(processingJobs),
+    document: one(documents, {
+      fields: [sourceFileVersions.id],
+      references: [documents.fileVersionId],
+    }),
   }),
 );
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  persona: one(personas, {
+    fields: [documents.personaId],
+    references: [personas.id],
+  }),
+  fileVersion: one(sourceFileVersions, {
+    fields: [documents.fileVersionId],
+    references: [sourceFileVersions.id],
+  }),
+}));
 
 export const processingJobsRelations = relations(processingJobs, ({ one }) => ({
   persona: one(personas, {

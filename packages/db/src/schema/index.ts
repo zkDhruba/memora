@@ -9,4 +9,5 @@ export * from "./consents";
 export * from "./attestations";
 export * from "./sources";
 export * from "./processing-jobs";
+export * from "./documents";
 export * from "./relations";

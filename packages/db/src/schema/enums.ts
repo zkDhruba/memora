@@ -88,3 +88,13 @@ export const processingJobStageEnum = pgEnum("processing_job_stage", [
   "purge",
   "test_fail",
 ]);
+
+export const documentKindEnum = pgEnum("document_kind", [
+  "plain_text",
+  "markdown",
+  "prose",
+  "journal",
+  "biography",
+  "owner_note",
+  "csv_dump",
+]);

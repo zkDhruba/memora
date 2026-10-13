@@ -145,4 +145,35 @@ export class ObjectStoreService {
     await this.deleteQuarantineObject(objectKey);
     return { bucket: clean, objectKey };
   }
+
+  async getCleanObject(objectKey: string): Promise<Buffer> {
+    const out = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.cleanBucket(),
+        Key: objectKey,
+      }),
+    );
+    return streamToBuffer(out.Body as AsyncIterable<Uint8Array> | undefined);
+  }
+
+  /** Store derived text (large parsed bodies) in the clean bucket. */
+  async putCleanObject(input: {
+    objectKey: string;
+    body: Buffer | string;
+    mediaType?: string;
+  }): Promise<void> {
+    const body =
+      typeof input.body === "string"
+        ? Buffer.from(input.body, "utf8")
+        : input.body;
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.cleanBucket(),
+        Key: input.objectKey,
+        Body: body,
+        ContentType: input.mediaType ?? "text/plain; charset=utf-8",
+        ContentLength: body.length,
+      }),
+    );
+  }
 }

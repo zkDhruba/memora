@@ -1,0 +1,5 @@
+﻿Memora plain-text fixture
+Written on 2024-06-15.
+
+This is a short journal entry used by the Phase 2.4 parser tests.
+Line endings in the committed file may be CRLF; the parser normalizes to LF.

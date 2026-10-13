@@ -82,7 +82,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 3 — Parsers
 
-- [ ] **2.4** Text + Markdown parser
+- [x] **2.4** Text + Markdown parser
 - [ ] **2.5** DOCX + digital PDF (`needs_ocr` for scanned)
 - [ ] **2.6** WhatsApp parser + subject mapping UI
 - [ ] **2.7** Other participants default not retrievable
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.4 | documents table; UTF-8 text/md parser; parse job writes documents; fixtures + check-parse |
 | 2026-10-13 | 2.3 | BullMQ ingestion queue + DLQ; processing_jobs; worker entry; retry then success + dead after 5 |
 | 2026-10-13 | 2.2 | ClamAV INSTREAM on complete; clean→memora-clean; EICAR→FILE_INFECTED + quarantine delete |
 | 2026-10-13 | 2.1 | source_imports/files/versions; S3 presign PUT → quarantine; complete + HeadObject; CONSENT_REQUIRED |
@@ -581,11 +582,37 @@ pnpm --filter @memora/api exec tsx scripts/check-job-retry.ts
 # → ok dead-letter after 5 attempts; dlq depth increases
 ```
 
-**Happy path:** clean `complete` inserts `processing_jobs` (stage `parse`, generation 1) and enqueues BullMQ `ingestion`. Worker stub marks job `completed` (real parse in 2.4).
+**Happy path:** clean `complete` inserts `processing_jobs` (stage `parse`, generation 1) and enqueues BullMQ `ingestion`. Worker runs the text/md parser (2.4).
 
 **Edge — retries:** forced failures until attempt 3 still complete. Always-failing `test_fail` → status `dead` after 5 attempts and a row on `ingestion-dlq`.
 
 **Fail if:** no worker picks up jobs; failed jobs never reach DLQ; `(file_version_id, stage, generation)` uniqueness broken.
+
+### 2.4 — Text + Markdown parser
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build
+pnpm --filter @memora/api start          # :4000 (upload + enqueue)
+# Optional dedicated worker: pnpm --filter @memora/api worker
+
+# Unit fixtures (BOM/CRLF + markdown)
+pnpm --filter @memora/api test
+# → text-markdown.parser.test.ts (and other API tests) green
+
+# E2E (script boots its own worker)
+pnpm --filter @memora/api exec tsx scripts/check-parse.ts
+# → ok plain → documents …
+# → ok markdown → documents …
+# → ok empty text → needs_attention
+# → parse check passed
+```
+
+**Happy path:** clean upload of `apps/api/fixtures/plain.txt` / `notes.md` → parse job → `source_files.status = parsed` and a `documents` row (`plain_text` / `markdown`) with preview + char count. Bodies ≤100 KB stored inline.
+
+**Edge — empty / binary:** whitespace-only or binary → `needs_attention` and `parseReport.errorCode` (`EMPTY` / `BINARY` / `ENCODING`); no document row. Unsupported MIME (PDF/DOCX) is skipped until 2.5 (file stays `clean`).
+
+**Fail if:** parse job still stubs `queued_stub`; `.txt`/`.md` never create `documents`; empty file stays `clean` forever.
 
 ---
 

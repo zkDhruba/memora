@@ -2,6 +2,7 @@ import { Module, OnModuleDestroy } from "@nestjs/common";
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 import { env } from "../config/env";
+import { ParsingModule } from "../parsing/parsing.module";
 import { INGESTION_DLQ, INGESTION_QUEUE } from "./jobs.constants";
 import { IngestionQueueService } from "./ingestion-queue.service";
 import { IngestionProcessor } from "./ingestion.processor";
@@ -17,6 +18,7 @@ function bullConnection() {
 }
 
 @Module({
+  imports: [ParsingModule],
   providers: [
     {
       provide: INGESTION_QUEUE_TOKEN,
