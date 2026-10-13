@@ -36,6 +36,13 @@ export const completeFileBodySchema = z
   })
   .strict();
 
+export const subjectMappingBodySchema = z
+  .object({
+    participantId: z.string().uuid(),
+  })
+  .strict();
+
 export type CreateImportBody = z.infer<typeof createImportBodySchema>;
 export type PresignFileBody = z.infer<typeof presignFileBodySchema>;
 export type CompleteFileBody = z.infer<typeof completeFileBodySchema>;
+export type SubjectMappingBody = z.infer<typeof subjectMappingBodySchema>;

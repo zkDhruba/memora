@@ -112,3 +112,20 @@ export type PersonaDetail = PersonaListItem & {
     grantedAt: string;
   }>;
 };
+
+export type SourceFileListItem = {
+  id: string;
+  originalFilename: string;
+  mediaType: string;
+  status: string;
+  subjectParticipantId: string | null;
+  participantCount: number;
+  needsSubjectMapping: boolean;
+  createdAt: string;
+};
+
+export type SourceParticipant = {
+  id: string;
+  rawLabel: string;
+  role: "subject" | "other" | "unknown";
+};

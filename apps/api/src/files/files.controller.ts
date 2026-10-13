@@ -10,9 +10,11 @@ import {
   completeFileBodySchema,
   createImportBodySchema,
   presignFileBodySchema,
+  subjectMappingBodySchema,
   type CompleteFileBody,
   type CreateImportBody,
   type PresignFileBody,
+  type SubjectMappingBody,
 } from "@memora/shared";
 import { CurrentAuth } from "../auth/current-auth.decorator";
 import type { AuthContext } from "../auth/auth.types";
@@ -68,5 +70,25 @@ export class FilesController {
     @Body(new ZodValidationPipe(completeFileBodySchema)) body: CompleteFileBody,
   ) {
     return this.files.complete(auth.user.id, personaId, fileId, body);
+  }
+
+  @Get("files/:fileId/participants")
+  listParticipants(
+    @CurrentAuth() auth: AuthContext,
+    @Param("personaId") personaId: string,
+    @Param("fileId") fileId: string,
+  ) {
+    return this.files.listParticipants(auth.user.id, personaId, fileId);
+  }
+
+  @Post("files/:fileId/subject-mapping")
+  mapSubject(
+    @CurrentAuth() auth: AuthContext,
+    @Param("personaId") personaId: string,
+    @Param("fileId") fileId: string,
+    @Body(new ZodValidationPipe(subjectMappingBodySchema))
+    body: SubjectMappingBody,
+  ) {
+    return this.files.mapSubject(auth.user.id, personaId, fileId, body);
   }
 }

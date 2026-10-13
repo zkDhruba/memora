@@ -1,0 +1,6 @@
+[15/03/2024, 10:15:22] Alice: Good morning!
+[15/03/2024, 10:16:01] Bob: Morning Alice — coffee later?
+[15/03/2024, 10:16:45] Alice: Yes, the usual place.
+[15/03/2024, 10:17:02] Bob: <Media omitted>
+[15/03/2024, 10:18:11] Alice: Got the photo, thanks.
+Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.

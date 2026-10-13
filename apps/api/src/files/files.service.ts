@@ -4,10 +4,15 @@ import {
   sourceFiles,
   sourceFileVersions,
   sourceImports,
+  sourceParticipants,
   type MemoraDb,
 } from "@memora/db";
-import type { CompleteFileBody, PresignFileBody } from "@memora/shared";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import type {
+  CompleteFileBody,
+  PresignFileBody,
+  SubjectMappingBody,
+} from "@memora/shared";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
@@ -90,6 +95,7 @@ export class FilesService {
         sql`${sourceFiles.status} not in ('deleted', 'deleting')`,
       ),
       orderBy: (f, { desc }) => [desc(f.createdAt)],
+      with: { participants: { columns: { id: true } } },
     });
     return {
       data: rows.map((r) => ({
@@ -100,9 +106,138 @@ export class FilesService {
         byteSize: r.byteSize,
         sha256: r.sha256,
         status: r.status,
+        subjectParticipantId: r.subjectParticipantId,
+        participantCount: r.participants.length,
+        needsSubjectMapping:
+          r.subjectParticipantId == null && r.participants.length > 0,
         createdAt: r.createdAt,
       })),
     };
+  }
+
+  async listParticipants(userId: string, personaId: string, fileId: string) {
+    await this.access.requireContributor(userId, personaId);
+    const file = await this.requireFile(personaId, fileId);
+    const rows = await this.db.query.sourceParticipants.findMany({
+      where: and(
+        eq(sourceParticipants.fileId, file.id),
+        eq(sourceParticipants.personaId, personaId),
+      ),
+      orderBy: (p, { asc }) => [asc(p.rawLabel)],
+    });
+    return {
+      fileId: file.id,
+      subjectParticipantId: file.subjectParticipantId,
+      needsSubjectMapping:
+        file.subjectParticipantId == null && rows.length > 0,
+      data: rows.map((r) => ({
+        id: r.id,
+        rawLabel: r.rawLabel,
+        role: r.role,
+      })),
+    };
+  }
+
+  async mapSubject(
+    userId: string,
+    personaId: string,
+    fileId: string,
+    body: SubjectMappingBody,
+  ) {
+    await this.access.requireOwnerOrManager(userId, personaId);
+    const file = await this.requireFile(personaId, fileId);
+
+    const participant = await this.db.query.sourceParticipants.findFirst({
+      where: and(
+        eq(sourceParticipants.id, body.participantId),
+        eq(sourceParticipants.fileId, file.id),
+        eq(sourceParticipants.personaId, personaId),
+      ),
+    });
+    if (!participant) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "PARTICIPANT_NOT_FOUND",
+        "Participant not found on this file.",
+      );
+    }
+
+    await this.db
+      .update(sourceParticipants)
+      .set({ role: "other" })
+      .where(
+        and(
+          eq(sourceParticipants.fileId, file.id),
+          ne(sourceParticipants.id, body.participantId),
+        ),
+      );
+    await this.db
+      .update(sourceParticipants)
+      .set({ role: "subject" })
+      .where(eq(sourceParticipants.id, body.participantId));
+
+    await this.db
+      .update(sourceFiles)
+      .set({
+        subjectParticipantId: body.participantId,
+        status: "parsed",
+      })
+      .where(eq(sourceFiles.id, file.id));
+
+    const version = await this.db.query.sourceFileVersions.findFirst({
+      where: eq(sourceFileVersions.fileId, file.id),
+      orderBy: (v, { desc }) => [desc(v.generation)],
+    });
+    if (version) {
+      await this.db
+        .update(sourceFileVersions)
+        .set({
+          parseReport: {
+            ...(version.parseReport ?? {}),
+            needsSubjectMapping: false,
+            subjectParticipantId: body.participantId,
+            subjectLabel: participant.rawLabel,
+            mappedAt: new Date().toISOString(),
+          },
+        })
+        .where(eq(sourceFileVersions.id, version.id));
+    }
+
+    await this.audit.record({
+      actorUserId: userId,
+      personaId,
+      action: "file.subject_mapping",
+      targetType: "source_file",
+      targetId: file.id,
+      metadata: {
+        participantId: body.participantId,
+        rawLabel: participant.rawLabel,
+      },
+    });
+
+    return {
+      fileId: file.id,
+      subjectParticipantId: body.participantId,
+      subjectLabel: participant.rawLabel,
+      status: "parsed" as const,
+    };
+  }
+
+  private async requireFile(personaId: string, fileId: string) {
+    const file = await this.db.query.sourceFiles.findFirst({
+      where: and(
+        eq(sourceFiles.id, fileId),
+        eq(sourceFiles.personaId, personaId),
+      ),
+    });
+    if (!file || file.status === "deleted" || file.status === "deleting") {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "FILE_NOT_FOUND",
+        "File not found.",
+      );
+    }
+    return file;
   }
 
   async presign(userId: string, personaId: string, body: PresignFileBody) {

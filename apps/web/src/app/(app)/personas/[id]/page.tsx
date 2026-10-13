@@ -3,16 +3,31 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { apiFetch, type PersonaDetail } from "../../../../lib/api";
+import {
+  apiFetch,
+  type PersonaDetail,
+  type SourceFileListItem,
+  type SourceParticipant,
+} from "../../../../lib/api";
 
 export default function PersonaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [persona, setPersona] = useState<PersonaDetail | null>(null);
   const [biography, setBiography] = useState("");
+  const [files, setFiles] = useState<SourceFileListItem[]>([]);
+  const [mappingFileId, setMappingFileId] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<SourceParticipant[]>([]);
+  const [selectedParticipantId, setSelectedParticipantId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  const loadFiles = useCallback(() => {
+    apiFetch<{ data: SourceFileListItem[] }>(`/personas/${id}/files`)
+      .then((res) => setFiles(res.data))
+      .catch(() => setFiles([]));
+  }, [id]);
 
   const load = useCallback(() => {
     apiFetch<PersonaDetail>(`/personas/${id}`)
@@ -21,11 +36,56 @@ export default function PersonaDetailPage() {
         setBiography(p.biography ?? "");
       })
       .catch((err) => setError((err as Error).message));
-  }, [id]);
+    loadFiles();
+  }, [id, loadFiles]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  async function openMapping(fileId: string) {
+    setError(null);
+    setMessage(null);
+    setMappingFileId(fileId);
+    setSelectedParticipantId("");
+    try {
+      const res = await apiFetch<{
+        data: SourceParticipant[];
+        needsSubjectMapping: boolean;
+      }>(`/personas/${id}/files/${fileId}/participants`);
+      setParticipants(res.data);
+      const unknown = res.data.find((p) => p.role === "unknown");
+      setSelectedParticipantId(unknown?.id ?? res.data[0]?.id ?? "");
+    } catch (err) {
+      setError((err as Error).message);
+      setMappingFileId(null);
+    }
+  }
+
+  async function onMapSubject(e: FormEvent) {
+    e.preventDefault();
+    if (!mappingFileId || !selectedParticipantId) return;
+    setPending(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await apiFetch<{ subjectLabel: string; status: string }>(
+        `/personas/${id}/files/${mappingFileId}/subject-mapping`,
+        {
+          method: "POST",
+          body: JSON.stringify({ participantId: selectedParticipantId }),
+        },
+      );
+      setMessage(`Mapped subject: ${res.subjectLabel}`);
+      setMappingFileId(null);
+      setParticipants([]);
+      loadFiles();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
@@ -75,6 +135,10 @@ export default function PersonaDetailPage() {
     return <p className="text-sm text-[var(--danger)]">{error}</p>;
   }
 
+  const needsMapping = files.filter((f) => f.needsSubjectMapping);
+  const canMap =
+    persona.role === "owner" || persona.role === "manager";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -120,6 +184,95 @@ export default function PersonaDetailPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
+        <h2 className="font-medium">Source files</h2>
+        {files.length === 0 ? (
+          <p className="mt-2 text-[var(--muted)]">
+            No uploads yet. Use the API upload flow until the import UI lands
+            (2.9).
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {files.map((f) => (
+              <li
+                key={f.id}
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-2 last:border-0"
+              >
+                <div>
+                  <p className="font-medium text-[var(--foreground)]">
+                    {f.originalFilename}
+                  </p>
+                  <p className="text-[var(--muted)]">
+                    {f.status}
+                    {f.participantCount > 0
+                      ? ` · ${f.participantCount} participants`
+                      : ""}
+                    {f.needsSubjectMapping ? " · needs subject mapping" : ""}
+                  </p>
+                </div>
+                {f.needsSubjectMapping && canMap ? (
+                  <button
+                    type="button"
+                    className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
+                    onClick={() => void openMapping(f.id)}
+                  >
+                    Map subject
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {needsMapping.length > 0 && !canMap ? (
+          <p className="mt-2 text-[var(--muted)]">
+            Subject mapping requires owner or manager.
+          </p>
+        ) : null}
+
+        {mappingFileId ? (
+          <form onSubmit={onMapSubject} className="mt-4 flex flex-col gap-3">
+            <p className="font-medium">Which name is the persona subject?</p>
+            <div className="flex flex-col gap-2">
+              {participants.map((p) => (
+                <label key={p.id} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="subject"
+                    value={p.id}
+                    checked={selectedParticipantId === p.id}
+                    onChange={() => setSelectedParticipantId(p.id)}
+                  />
+                  <span>
+                    {p.rawLabel}{" "}
+                    <span className="text-[var(--muted)]">({p.role})</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={pending || !selectedParticipantId}
+                className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                Save mapping
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-[var(--border)] px-4 py-2 text-sm"
+                onClick={() => {
+                  setMappingFileId(null);
+                  setParticipants([]);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : null}
       </section>
 
       <form onSubmit={onSave} className="flex flex-col gap-3">

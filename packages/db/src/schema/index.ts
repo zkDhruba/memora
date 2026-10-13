@@ -10,4 +10,5 @@ export * from "./attestations";
 export * from "./sources";
 export * from "./processing-jobs";
 export * from "./documents";
+export * from "./chat-sources";
 export * from "./relations";

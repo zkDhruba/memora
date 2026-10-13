@@ -41,8 +41,10 @@ export {
   createImportBodySchema,
   presignFileBodySchema,
   completeFileBodySchema,
+  subjectMappingBodySchema,
   type AllowedUploadMediaType,
   type CreateImportBody,
   type PresignFileBody,
   type CompleteFileBody,
+  type SubjectMappingBody,
 } from "./uploads";

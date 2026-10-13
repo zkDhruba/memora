@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
   documents,
   sourceFiles,
   sourceFileVersions,
+  sourceMessages,
+  sourceParticipants,
+  sourceThreads,
   type MemoraDb,
 } from "@memora/db";
 import { eq } from "drizzle-orm";
@@ -16,7 +20,13 @@ import {
   formatFromUpload,
   type ParsedDocument,
 } from "./parse-result";
+import { decodeUtf8Text } from "./text-markdown.parser";
 import { TextMarkdownParser } from "./text-markdown.parser";
+import {
+  looksLikeWhatsApp,
+  WhatsAppParser,
+  type ParsedWhatsAppChat,
+} from "./whatsapp.parser";
 
 @Injectable()
 export class DocumentParseService {
@@ -28,11 +38,11 @@ export class DocumentParseService {
     @Inject(TextMarkdownParser) private readonly textParser: TextMarkdownParser,
     @Inject(DocxParser) private readonly docxParser: DocxParser,
     @Inject(PdfParser) private readonly pdfParser: PdfParser,
+    @Inject(WhatsAppParser) private readonly whatsappParser: WhatsAppParser,
   ) {}
 
   /**
-   * Parse a clean file version into a `documents` row (text/md/docx/pdf).
-   * Unsupported types leave the file `clean`. Scanned PDFs → `needs_attention`.
+   * Parse a clean file version into documents or WhatsApp messages.
    */
   async parseFileVersion(input: {
     personaId: string;
@@ -90,6 +100,46 @@ export class DocumentParseService {
     }
 
     try {
+      if (format === "plain_text" || format === "markdown") {
+        let text: string;
+        try {
+          text = decodeUtf8Text(bytes);
+        } catch (err) {
+          if (err instanceof DocumentParseError) throw err;
+          throw err;
+        }
+
+        if (looksLikeWhatsApp(file.originalFilename, text)) {
+          const chat = this.whatsappParser.parse(text, {
+            filename: file.originalFilename,
+          });
+          await this.persistWhatsApp({
+            fileId: file.id,
+            personaId: file.personaId,
+            versionId: version.id,
+            generation: input.generation,
+            priorReport: version.parseReport ?? {},
+            chat,
+          });
+          return;
+        }
+
+        const parsed = this.textParser.parse(bytes, {
+          mediaType: file.mediaType,
+          filename: file.originalFilename,
+        });
+        await this.persistDocument({
+          fileId: file.id,
+          personaId: file.personaId,
+          versionId: version.id,
+          generation: input.generation,
+          priorReport: version.parseReport ?? {},
+          objectKey: version.objectKey,
+          parsed,
+        });
+        return;
+      }
+
       const parsed = await this.parseBytes(format, bytes, {
         mediaType: file.mediaType,
         filename: file.originalFilename,
@@ -130,19 +180,112 @@ export class DocumentParseService {
   }
 
   private async parseBytes(
-    format: NonNullable<ReturnType<typeof formatFromUpload>>,
+    format: "docx" | "pdf",
     bytes: Buffer,
     opts: { mediaType: string; filename: string },
   ): Promise<ParsedDocument> {
-    switch (format) {
-      case "plain_text":
-      case "markdown":
-        return this.textParser.parse(bytes, opts);
-      case "docx":
-        return this.docxParser.parse(bytes);
-      case "pdf":
-        return this.pdfParser.parse(bytes);
+    void opts;
+    if (format === "docx") return this.docxParser.parse(bytes);
+    return this.pdfParser.parse(bytes);
+  }
+
+  private async clearChatDerivatives(fileId: string) {
+    const threads = await this.db.query.sourceThreads.findMany({
+      where: eq(sourceThreads.fileId, fileId),
+    });
+    for (const t of threads) {
+      await this.db
+        .delete(sourceMessages)
+        .where(eq(sourceMessages.threadId, t.id));
     }
+    await this.db.delete(sourceThreads).where(eq(sourceThreads.fileId, fileId));
+    await this.db
+      .delete(sourceParticipants)
+      .where(eq(sourceParticipants.fileId, fileId));
+  }
+
+  private async persistWhatsApp(input: {
+    fileId: string;
+    personaId: string;
+    versionId: string;
+    generation: number;
+    priorReport: Record<string, unknown>;
+    chat: ParsedWhatsAppChat;
+  }) {
+    await this.clearChatDerivatives(input.fileId);
+    await this.db
+      .delete(documents)
+      .where(eq(documents.fileVersionId, input.versionId));
+
+    const labelToId = new Map<string, string>();
+    for (const label of input.chat.participants) {
+      const id = newId();
+      labelToId.set(label, id);
+      await this.db.insert(sourceParticipants).values({
+        id,
+        personaId: input.personaId,
+        fileId: input.fileId,
+        rawLabel: label,
+        role: "unknown",
+      });
+    }
+
+    const threadId = newId();
+    await this.db.insert(sourceThreads).values({
+      id: threadId,
+      personaId: input.personaId,
+      fileId: input.fileId,
+      title: input.chat.title,
+    });
+
+    for (const msg of input.chat.messages) {
+      const participantId = msg.rawLabel
+        ? (labelToId.get(msg.rawLabel) ?? null)
+        : null;
+      await this.db
+        .insert(sourceMessages)
+        .values({
+          id: newId(),
+          personaId: input.personaId,
+          threadId,
+          participantId,
+          kind: msg.kind,
+          sentAt: msg.sentAt,
+          body: msg.body,
+          bodyHash:
+            msg.bodyHash ||
+            createHash("sha256").update(msg.body, "utf8").digest("hex"),
+          position: msg.position,
+        })
+        .onConflictDoNothing();
+    }
+
+    // Awaiting subject mapping before treated as fully parsed.
+    await this.db
+      .update(sourceFiles)
+      .set({
+        status: "needs_attention",
+        subjectParticipantId: null,
+      })
+      .where(eq(sourceFiles.id, input.fileId));
+
+    await this.db
+      .update(sourceFileVersions)
+      .set({
+        parseReport: {
+          ...input.priorReport,
+          parse: "ok",
+          format: "whatsapp",
+          dateStyle: input.chat.dateStyle,
+          speechCount: input.chat.speechCount,
+          participantCount: input.chat.participants.length,
+          anomalyCount: input.chat.anomalies.length,
+          needsSubjectMapping: true,
+          processedAt: new Date().toISOString(),
+          generation: input.generation,
+        },
+      })
+      .where(eq(sourceFileVersions.id, input.versionId));
   }
 
   private async persistDocument(input: {

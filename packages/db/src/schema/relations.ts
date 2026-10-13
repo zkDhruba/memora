@@ -9,6 +9,11 @@ import { sessions } from "./sessions";
 import { documents } from "./documents";
 import { processingJobs } from "./processing-jobs";
 import {
+  sourceMessages,
+  sourceParticipants,
+  sourceThreads,
+} from "./chat-sources";
+import {
   sourceFiles,
   sourceFileVersions,
   sourceImports,
@@ -62,6 +67,9 @@ export const personasRelations = relations(personas, ({ one, many }) => ({
   sourceImports: many(sourceImports),
   sourceFiles: many(sourceFiles),
   documents: many(documents),
+  sourceParticipants: many(sourceParticipants),
+  sourceThreads: many(sourceThreads),
+  sourceMessages: many(sourceMessages),
 }));
 
 export const authorizationAttestationsRelations = relations(
@@ -149,6 +157,56 @@ export const sourceFilesRelations = relations(sourceFiles, ({ one, many }) => ({
     references: [users.id],
   }),
   versions: many(sourceFileVersions),
+  participants: many(sourceParticipants),
+  thread: one(sourceThreads, {
+    fields: [sourceFiles.id],
+    references: [sourceThreads.fileId],
+  }),
+}));
+
+export const sourceParticipantsRelations = relations(
+  sourceParticipants,
+  ({ one, many }) => ({
+    persona: one(personas, {
+      fields: [sourceParticipants.personaId],
+      references: [personas.id],
+    }),
+    file: one(sourceFiles, {
+      fields: [sourceParticipants.fileId],
+      references: [sourceFiles.id],
+    }),
+    messages: many(sourceMessages),
+  }),
+);
+
+export const sourceThreadsRelations = relations(
+  sourceThreads,
+  ({ one, many }) => ({
+    persona: one(personas, {
+      fields: [sourceThreads.personaId],
+      references: [personas.id],
+    }),
+    file: one(sourceFiles, {
+      fields: [sourceThreads.fileId],
+      references: [sourceFiles.id],
+    }),
+    messages: many(sourceMessages),
+  }),
+);
+
+export const sourceMessagesRelations = relations(sourceMessages, ({ one }) => ({
+  persona: one(personas, {
+    fields: [sourceMessages.personaId],
+    references: [personas.id],
+  }),
+  thread: one(sourceThreads, {
+    fields: [sourceMessages.threadId],
+    references: [sourceThreads.id],
+  }),
+  participant: one(sourceParticipants, {
+    fields: [sourceMessages.participantId],
+    references: [sourceParticipants.id],
+  }),
 }));
 
 export const sourceFileVersionsRelations = relations(

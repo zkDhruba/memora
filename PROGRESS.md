@@ -84,7 +84,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 - [x] **2.4** Text + Markdown parser
 - [x] **2.5** DOCX + digital PDF (`needs_ocr` for scanned)
-- [ ] **2.6** WhatsApp parser + subject mapping UI
+- [x] **2.6** WhatsApp parser + subject mapping UI
 - [ ] **2.7** Other participants default not retrievable
 
 ### Bite 4 — Chunk and library
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.6 | WhatsApp bracketed+dashed parsers; participants/messages; subject-mapping API+UI |
 | 2026-10-13 | 2.5 | mammoth DOCX→md + unpdf digital PDF; scanned PDF → needs_ocr; fixtures + check-docx-pdf |
 | 2026-10-13 | 2.4 | documents table; UTF-8 text/md parser; parse job writes documents; fixtures + check-parse |
 | 2026-10-13 | 2.3 | BullMQ ingestion queue + DLQ; processing_jobs; worker entry; retry then success + dead after 5 |
@@ -639,6 +640,31 @@ pnpm --filter @memora/api exec tsx scripts/check-docx-pdf.ts
 **Edge — scanned PDF:** `fixtures/scanned.pdf` (sparse text on most pages) → `status = needs_attention`, `parseReport.parse = needs_ocr`, no `documents` row. OCR is not run.
 
 **Fail if:** digital PDF stays `clean` forever; scanned PDF creates a document; DOCX never produces markdown text.
+
+### 2.6 — WhatsApp parser + subject mapping
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+pnpm --filter @memora/web dev   # optional UI check
+
+# Unit (both date styles)
+pnpm --filter @memora/api test
+# → whatsapp.parser.test.ts green
+
+# E2E
+pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
+# → ok bracketed parse …
+# → ok dashed parse …
+# → ok subject mapping Alice → subject, Bob → other
+# → whatsapp check passed
+```
+
+**Happy path:** upload `whatsapp-bracketed.txt` / `whatsapp-dashed.txt` → thread + participants + messages; `POST …/subject-mapping` sets subject/`parsed`. Persona page lists files needing mapping (owner/manager).
+
+**Edge:** media-omitted / encryption lines → `system` messages (not speech). Continuations append to prior body. Contributor cannot map (manager+).
+
+**Fail if:** only one date style parses; mapping leaves others as `unknown`; UI never shows Map subject.
 
 ---
 

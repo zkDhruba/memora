@@ -98,3 +98,14 @@ export const documentKindEnum = pgEnum("document_kind", [
   "owner_note",
   "csv_dump",
 ]);
+
+export const sourceParticipantRoleEnum = pgEnum("source_participant_role", [
+  "subject",
+  "other",
+  "unknown",
+]);
+
+export const sourceMessageKindEnum = pgEnum("source_message_kind", [
+  "speech",
+  "system",
+]);
