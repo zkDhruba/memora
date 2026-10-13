@@ -52,7 +52,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 3 — PlanGuard and persona CRUD
 
-- [ ] **1.6** `PlanGuard` + `GET /me/plan` (personas 1/5/20, memory 100/1k/10k, daily sends 25/100/unlimited)
+- [x] **1.6** `PlanGuard` + `GET /me/plan` (personas 1/5/20, memory 100/1k/10k, daily sends 25/100/unlimited)
 - [ ] **1.7** Persona CRUD UI/API, attestation, consent; listed on dashboard
 
 ### Bite 4 — Shell and Chat picker
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 1.6 | PlanGuard + GET /me/plan; assertCanCreatePersona → PLAN_LIMIT_PERSONAS; daily send Redis helpers |
 | 2026-10-12 | 1.5 | TOTP MFA + recovery codes; step-up for logout-all; DELETE /me requires password+MFA; APP_DATA_KEY encrypt |
 | 2026-10-12 | 1.4 | Argon2id auth: register/verify/login/logout/reset; HttpOnly cookie sessions; Free sub on signup; Mailpit OK |
 | 2026-10-12 | 1.3 | Drizzle schema + migration for identity/plans/personas/consents; seed Free/Pro/Pro+; migrate twice OK |
@@ -355,6 +356,30 @@ curl -sS -b "$JAR" -X DELETE http://localhost:4000/api/v1/me \
 ```
 
 **Fail if:** setup returns 500 (check `APP_DATA_KEY`); confirm without setup succeeds; delete without MFA when enabled succeeds; logout-all without step-up succeeds when MFA on.
+
+### 1.6 — PlanGuard + GET /me/plan
+
+```bash
+pnpm deps:up && pnpm db:seed && pnpm --filter @memora/api dev
+# After register/verify/login ($JAR, $USER_ID):
+
+curl -sS -b "$JAR" http://localhost:4000/api/v1/me/plan
+# → planId free, maxOwnedPersonas 1, maxChatMemoryMessages 100,
+#   maxChatMessagesPerDay 25, ownedPersonaCount 0, canCreatePersona true
+
+# Simulate first owned persona (until 1.7 POST /personas exists):
+# INSERT persona + persona_memberships role=owner for $USER_ID
+
+curl -sS -b "$JAR" http://localhost:4000/api/v1/me/plan
+# → ownedPersonaCount 1, canCreatePersona false
+
+pnpm --filter @memora/api exec tsx scripts/check-plan-limit.ts "$USER_ID"
+# → 403 PLAN_LIMIT_PERSONAS { plan, maxOwnedPersonas, currentOwned }
+```
+
+**Edge — daily send:** set Redis `chat_send:{userId}:{yyyyMMdd}` to 25 → `chatMessagesUsedToday: 25`; `assertCanSendChatMessage` → `429 PLAN_LIMIT_CHAT_DAY`.
+
+**Fail if:** Free plan shows wrong caps; second owned persona still allows create; Pro+ daily cap is not `null`.
 
 ---
 
