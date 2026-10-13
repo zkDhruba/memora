@@ -83,7 +83,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 3 — Parsers
 
 - [x] **2.4** Text + Markdown parser
-- [ ] **2.5** DOCX + digital PDF (`needs_ocr` for scanned)
+- [x] **2.5** DOCX + digital PDF (`needs_ocr` for scanned)
 - [ ] **2.6** WhatsApp parser + subject mapping UI
 - [ ] **2.7** Other participants default not retrievable
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.5 | mammoth DOCX→md + unpdf digital PDF; scanned PDF → needs_ocr; fixtures + check-docx-pdf |
 | 2026-10-13 | 2.4 | documents table; UTF-8 text/md parser; parse job writes documents; fixtures + check-parse |
 | 2026-10-13 | 2.3 | BullMQ ingestion queue + DLQ; processing_jobs; worker entry; retry then success + dead after 5 |
 | 2026-10-13 | 2.2 | ClamAV INSTREAM on complete; clean→memora-clean; EICAR→FILE_INFECTED + quarantine delete |
@@ -610,9 +611,34 @@ pnpm --filter @memora/api exec tsx scripts/check-parse.ts
 
 **Happy path:** clean upload of `apps/api/fixtures/plain.txt` / `notes.md` → parse job → `source_files.status = parsed` and a `documents` row (`plain_text` / `markdown`) with preview + char count. Bodies ≤100 KB stored inline.
 
-**Edge — empty / binary:** whitespace-only or binary → `needs_attention` and `parseReport.errorCode` (`EMPTY` / `BINARY` / `ENCODING`); no document row. Unsupported MIME (PDF/DOCX) is skipped until 2.5 (file stays `clean`).
+**Edge — empty / binary:** whitespace-only or binary → `needs_attention` and `parseReport.errorCode` (`EMPTY` / `BINARY` / `ENCODING`); no document row.
 
 **Fail if:** parse job still stubs `queued_stub`; `.txt`/`.md` never create `documents`; empty file stays `clean` forever.
+
+### 2.5 — DOCX + digital PDF
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build
+pnpm --filter @memora/api start          # :4000
+
+# Unit fixtures
+pnpm --filter @memora/api test
+# → docx-pdf.parser.test.ts green (DOCX markdown, digital PDF prose, scanned NEEDS_OCR)
+
+# E2E (script boots its own worker)
+pnpm --filter @memora/api exec tsx scripts/check-docx-pdf.ts
+# → ok docx → documents …
+# → ok digital pdf → documents …
+# → ok scanned pdf → needs_ocr / needs_attention
+# → docx-pdf check passed
+```
+
+**Happy path:** `fixtures/sample.docx` → `documents.kind = markdown`; `fixtures/digital.pdf` → `kind = prose`; file status `parsed`. Embedded DOCX images are ignored (count in `parseReport`).
+
+**Edge — scanned PDF:** `fixtures/scanned.pdf` (sparse text on most pages) → `status = needs_attention`, `parseReport.parse = needs_ocr`, no `documents` row. OCR is not run.
+
+**Fail if:** digital PDF stays `clean` forever; scanned PDF creates a document; DOCX never produces markdown text.
 
 ---
 

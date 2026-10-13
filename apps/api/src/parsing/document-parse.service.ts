@@ -9,11 +9,14 @@ import { eq } from "drizzle-orm";
 import { newId } from "../common/ids";
 import { DB } from "../db/db.tokens";
 import { ObjectStoreService } from "../storage/object-store.service";
+import { DocxParser } from "./docx.parser";
+import { PdfParser } from "./pdf.parser";
 import {
-  TextMarkdownParser,
-  TextParseError,
-  kindFromUpload,
-} from "./text-markdown.parser";
+  DocumentParseError,
+  formatFromUpload,
+  type ParsedDocument,
+} from "./parse-result";
+import { TextMarkdownParser } from "./text-markdown.parser";
 
 @Injectable()
 export class DocumentParseService {
@@ -23,11 +26,13 @@ export class DocumentParseService {
     @Inject(DB) private readonly db: MemoraDb,
     @Inject(ObjectStoreService) private readonly objects: ObjectStoreService,
     @Inject(TextMarkdownParser) private readonly textParser: TextMarkdownParser,
+    @Inject(DocxParser) private readonly docxParser: DocxParser,
+    @Inject(PdfParser) private readonly pdfParser: PdfParser,
   ) {}
 
   /**
-   * Parse a clean file version into a `documents` row when text/md.
-   * Unsupported types leave the file `clean` (DOCX/PDF land in 2.5).
+   * Parse a clean file version into a `documents` row (text/md/docx/pdf).
+   * Unsupported types leave the file `clean`. Scanned PDFs → `needs_attention`.
    */
   async parseFileVersion(input: {
     personaId: string;
@@ -56,8 +61,8 @@ export class DocumentParseService {
       return;
     }
 
-    const kind = kindFromUpload(file.mediaType, file.originalFilename);
-    if (!kind) {
+    const format = formatFromUpload(file.mediaType, file.originalFilename);
+    if (!format) {
       await this.db
         .update(sourceFileVersions)
         .set({
@@ -85,58 +90,21 @@ export class DocumentParseService {
     }
 
     try {
-      const parsed = this.textParser.parse(bytes, {
+      const parsed = await this.parseBytes(format, bytes, {
         mediaType: file.mediaType,
         filename: file.originalFilename,
       });
-
-      let text: string | null = parsed.text;
-      let textObjectKey: string | null = null;
-      if (!parsed.storeInline) {
-        textObjectKey = `${version.objectKey}.parsed.txt`;
-        await this.objects.putCleanObject({
-          objectKey: textObjectKey,
-          body: parsed.text,
-          mediaType: "text/plain; charset=utf-8",
-        });
-        text = null;
-      }
-
-      await this.db.delete(documents).where(eq(documents.fileVersionId, version.id));
-      await this.db.insert(documents).values({
-        id: newId(),
+      await this.persistDocument({
+        fileId: file.id,
         personaId: file.personaId,
-        fileVersionId: version.id,
-        kind: parsed.kind,
-        language: "und",
-        text,
-        textObjectKey,
-        preview: parsed.preview,
-        charCount: parsed.charCount,
+        versionId: version.id,
+        generation: input.generation,
+        priorReport: version.parseReport ?? {},
+        objectKey: version.objectKey,
+        parsed,
       });
-
-      await this.db
-        .update(sourceFiles)
-        .set({ status: "parsed" })
-        .where(eq(sourceFiles.id, file.id));
-
-      await this.db
-        .update(sourceFileVersions)
-        .set({
-          parseReport: {
-            ...(version.parseReport ?? {}),
-            parse: "ok",
-            kind: parsed.kind,
-            charCount: parsed.charCount,
-            storeInline: parsed.storeInline,
-            documentDate: parsed.documentDate,
-            processedAt: new Date().toISOString(),
-            generation: input.generation,
-          },
-        })
-        .where(eq(sourceFileVersions.id, version.id));
     } catch (err) {
-      if (err instanceof TextParseError) {
+      if (err instanceof DocumentParseError) {
         await this.db
           .update(sourceFiles)
           .set({ status: "needs_attention" })
@@ -146,9 +114,10 @@ export class DocumentParseService {
           .set({
             parseReport: {
               ...(version.parseReport ?? {}),
-              parse: "failed",
+              parse: err.code === "NEEDS_OCR" ? "needs_ocr" : "failed",
               errorCode: err.code,
               error: err.message,
+              ...(err.details ?? {}),
               processedAt: new Date().toISOString(),
               generation: input.generation,
             },
@@ -158,5 +127,80 @@ export class DocumentParseService {
       }
       throw err;
     }
+  }
+
+  private async parseBytes(
+    format: NonNullable<ReturnType<typeof formatFromUpload>>,
+    bytes: Buffer,
+    opts: { mediaType: string; filename: string },
+  ): Promise<ParsedDocument> {
+    switch (format) {
+      case "plain_text":
+      case "markdown":
+        return this.textParser.parse(bytes, opts);
+      case "docx":
+        return this.docxParser.parse(bytes);
+      case "pdf":
+        return this.pdfParser.parse(bytes);
+    }
+  }
+
+  private async persistDocument(input: {
+    fileId: string;
+    personaId: string;
+    versionId: string;
+    generation: number;
+    priorReport: Record<string, unknown>;
+    objectKey: string;
+    parsed: ParsedDocument;
+  }) {
+    let text: string | null = input.parsed.text;
+    let textObjectKey: string | null = null;
+    if (!input.parsed.storeInline) {
+      textObjectKey = `${input.objectKey}.parsed.txt`;
+      await this.objects.putCleanObject({
+        objectKey: textObjectKey,
+        body: input.parsed.text,
+        mediaType: "text/plain; charset=utf-8",
+      });
+      text = null;
+    }
+
+    await this.db
+      .delete(documents)
+      .where(eq(documents.fileVersionId, input.versionId));
+    await this.db.insert(documents).values({
+      id: newId(),
+      personaId: input.personaId,
+      fileVersionId: input.versionId,
+      kind: input.parsed.kind,
+      language: "und",
+      text,
+      textObjectKey,
+      preview: input.parsed.preview,
+      charCount: input.parsed.charCount,
+    });
+
+    await this.db
+      .update(sourceFiles)
+      .set({ status: "parsed" })
+      .where(eq(sourceFiles.id, input.fileId));
+
+    await this.db
+      .update(sourceFileVersions)
+      .set({
+        parseReport: {
+          ...input.priorReport,
+          parse: "ok",
+          kind: input.parsed.kind,
+          charCount: input.parsed.charCount,
+          storeInline: input.parsed.storeInline,
+          documentDate: input.parsed.documentDate,
+          ...(input.parsed.meta ?? {}),
+          processedAt: new Date().toISOString(),
+          generation: input.generation,
+        },
+      })
+      .where(eq(sourceFileVersions.id, input.versionId));
   }
 }

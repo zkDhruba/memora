@@ -1,30 +1,22 @@
 import { Injectable } from "@nestjs/common";
+import {
+  DOCUMENT_PREVIEW_CHARS,
+  TextParseError,
+  TEXT_INLINE_MAX_BYTES,
+  findDocumentDate,
+  formatFromUpload,
+  type ParsedDocument,
+} from "./parse-result";
 
-/** Prefer inline `documents.text` below this size; otherwise object storage. */
-export const TEXT_INLINE_MAX_BYTES = 100 * 1024;
-export const DOCUMENT_PREVIEW_CHARS = 2000;
+export {
+  TextParseError,
+  findDocumentDate,
+  TEXT_INLINE_MAX_BYTES,
+  DOCUMENT_PREVIEW_CHARS,
+} from "./parse-result";
 
 export type TextDocumentKind = "plain_text" | "markdown";
-
-export class TextParseError extends Error {
-  constructor(
-    message: string,
-    readonly code: "ENCODING" | "EMPTY" | "BINARY",
-  ) {
-    super(message);
-    this.name = "TextParseError";
-  }
-}
-
-export type ParsedTextDocument = {
-  kind: TextDocumentKind;
-  text: string;
-  charCount: number;
-  preview: string;
-  storeInline: boolean;
-  /** First ISO-8601 date found near the start of the file, if any. */
-  documentDate: string | null;
-};
+export type ParsedTextDocument = ParsedDocument;
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 
@@ -64,23 +56,9 @@ export function kindFromUpload(
   mediaType: string,
   filename: string,
 ): TextDocumentKind | null {
-  const lower = filename.toLowerCase();
-  if (mediaType === "text/markdown" || lower.endsWith(".md") || lower.endsWith(".markdown")) {
-    return "markdown";
-  }
-  if (mediaType === "text/plain" || lower.endsWith(".txt")) {
-    return "plain_text";
-  }
+  const fmt = formatFromUpload(mediaType, filename);
+  if (fmt === "plain_text" || fmt === "markdown") return fmt;
   return null;
-}
-
-const ISO_DATE =
-  /\b(\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?)\b/;
-
-export function findDocumentDate(text: string): string | null {
-  const head = text.slice(0, 2048);
-  const m = head.match(ISO_DATE);
-  return m?.[1] ?? null;
 }
 
 @Injectable()
