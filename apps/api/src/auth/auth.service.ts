@@ -18,6 +18,7 @@ import { DB } from "../db/db.tokens";
 import { MailService } from "../mail/mail.service";
 import { AuthTokensService } from "./auth-tokens.service";
 import { AuditService } from "./audit.service";
+import { MfaService } from "./mfa.service";
 import { PasswordService } from "./password.service";
 import { SessionService } from "./session.service";
 
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly sessions: SessionService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly mfa: MfaService,
   ) {}
 
   async register(body: RegisterBody): Promise<{ userId: string }> {
@@ -156,7 +158,32 @@ export class AuthService {
       throw invalid();
     }
 
-    // MFA (totp) is Phase 1.5 — ignore totp field for now if MFA not configured.
+    if (await this.mfa.hasConfirmedMfa(user.id)) {
+      if (!body.totp && !body.recoveryCode) {
+        throw new ApiException(
+          HttpStatus.UNAUTHORIZED,
+          "MFA_REQUIRED",
+          "Authenticator or recovery code is required.",
+        );
+      }
+      try {
+        await this.mfa.verifyUserMfa(user.id, {
+          totp: body.totp,
+          recoveryCode: body.recoveryCode,
+        });
+      } catch (err) {
+        await this.tokens.recordLoginFailure(email);
+        await this.audit.record({
+          actorUserId: user.id,
+          action: "auth.login_failed",
+          targetType: "user",
+          targetId: user.id,
+          metadata: { reason: "bad_mfa" },
+        });
+        throw err;
+      }
+    }
+
     await this.tokens.clearLoginFailures(email);
     const session = await this.sessions.createSession({
       userId: user.id,

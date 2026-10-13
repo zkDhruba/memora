@@ -48,7 +48,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 - [x] **1.3** Drizzle migrations: users, sessions, mfa, audit, plans, subscriptions, personas, memberships, consents (seed Free/Pro/Pro+)
 - [x] **1.4** Register, verify email, login, reset, cookie session; Free subscription on signup
-- [ ] **1.5** TOTP MFA + recovery codes (step-up on delete)
+- [x] **1.5** TOTP MFA + recovery codes (step-up on delete)
 
 ### Bite 3 — PlanGuard and persona CRUD
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-12 | 1.5 | TOTP MFA + recovery codes; step-up for logout-all; DELETE /me requires password+MFA; APP_DATA_KEY encrypt |
 | 2026-10-12 | 1.4 | Argon2id auth: register/verify/login/logout/reset; HttpOnly cookie sessions; Free sub on signup; Mailpit OK |
 | 2026-10-12 | 1.3 | Drizzle schema + migration for identity/plans/personas/consents; seed Free/Pro/Pro+; migrate twice OK |
 | 2026-10-12 | 1.2 | Compose stack up: Postgres 18+pgvector, Redis 7, Silo (MinIO API), Mailpit, ClamAV; buckets + healthchecks verified |
@@ -315,6 +316,45 @@ docker exec memora-postgres psql -U memora -d memora \
 **Edge — reset:** `POST /auth/password/forgot` → always `202`; Mailpit has reset mail; `POST /auth/password/reset` → `204` and old session cookie fails `/me` with `401`.
 
 **Fail if:** no Mailpit message after register; `/me` missing `plan.planId=free`; cookie not HttpOnly.
+
+### 1.5 — TOTP MFA + step-up delete
+
+```bash
+pnpm deps:up && pnpm --filter @memora/api dev
+# After register/verify/login (cookie jar $JAR):
+
+curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/auth/mfa/setup
+# → { otpauthUrl, secret }  — add secret to an authenticator (or otplib generateSync)
+
+curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/auth/mfa/confirm \
+  -H 'Content-Type: application/json' -d '{"code":"<6-digit>"}'
+# → { recoveryCodes: [10 codes] }  — save once
+
+curl -sS -b "$JAR" http://localhost:4000/api/v1/me
+# → mfaEnabled: true
+
+# Login now requires totp or recoveryCode
+curl -sS -X POST http://localhost:4000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"...","password":"..."}'
+# → 401 MFA_REQUIRED
+
+# logout-all needs step-up first
+curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/auth/logout-all
+# → 403 MFA_STEP_UP_REQUIRED
+
+curl -sS -b "$JAR" -X POST http://localhost:4000/api/v1/auth/mfa/step-up \
+  -H 'Content-Type: application/json' -d '{"totp":"<code>"}'
+# → 204
+
+# Delete account (step-up on delete)
+curl -sS -b "$JAR" -X DELETE http://localhost:4000/api/v1/me \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"...","totp":"<code>"}'
+# → 204; further login → 401
+```
+
+**Fail if:** setup returns 500 (check `APP_DATA_KEY`); confirm without setup succeeds; delete without MFA when enabled succeeds; logout-all without step-up succeeds when MFA on.
 
 ---
 

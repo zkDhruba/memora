@@ -14,11 +14,15 @@ import {
 import {
   forgotPasswordBodySchema,
   loginBodySchema,
+  mfaConfirmBodySchema,
+  mfaStepUpBodySchema,
   registerBodySchema,
   resetPasswordBodySchema,
   verifyEmailBodySchema,
   type ForgotPasswordBody,
   type LoginBody,
+  type MfaConfirmBody,
+  type MfaStepUpBody,
   type RegisterBody,
   type ResetPasswordBody,
   type VerifyEmailBody,
@@ -29,6 +33,8 @@ import { ApiException } from "../common/api-exception";
 import { AuthService } from "./auth.service";
 import { CurrentAuth } from "./current-auth.decorator";
 import type { AuthContext } from "./auth.types";
+import { MfaService } from "./mfa.service";
+import { RecentMfaGuard } from "./recent-mfa.guard";
 import { clearSessionCookie, setSessionCookie } from "./session-cookie";
 import { SessionGuard } from "./session.guard";
 import { SessionService } from "./session.service";
@@ -38,6 +44,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly mfa: MfaService,
   ) {}
 
   @Post("register")
@@ -83,13 +90,39 @@ export class AuthController {
 
   @Post("logout-all")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SessionGuard)
+  @UseGuards(SessionGuard, RecentMfaGuard)
   async logoutAll(
     @CurrentAuth() auth: AuthContext,
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.auth.logoutAll(auth.user.id);
     clearSessionCookie(res);
+  }
+
+  @Post("mfa/setup")
+  @UseGuards(SessionGuard)
+  async mfaSetup(@CurrentAuth() auth: AuthContext) {
+    return this.mfa.setup(auth.user.id, auth.user.email);
+  }
+
+  @Post("mfa/confirm")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SessionGuard)
+  async mfaConfirm(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(mfaConfirmBodySchema)) body: MfaConfirmBody,
+  ) {
+    return this.mfa.confirm(auth.user.id, body.code);
+  }
+
+  @Post("mfa/step-up")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SessionGuard)
+  async mfaStepUp(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(mfaStepUpBodySchema)) body: MfaStepUpBody,
+  ) {
+    await this.mfa.verifyStepUp(auth.user.id, auth.sessionId, body);
   }
 
   @Post("password/forgot")

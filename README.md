@@ -62,6 +62,6 @@ Track progress in [PROGRESS.md](PROGRESS.md). **Golden rule:** every finished ta
 
 ## Status
 
-Phase **1** in progress through **1.4** (auth + Free subscription). Planning docs remain the source of product decisions. Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
+Phase **1** Bite 2 complete through **1.5** (auth + MFA). Next: PlanGuard and persona CRUD (1.6+). Pricing/library notes in docs were checked 8 October 2026 — reconfirm before production.
 
 This plan is engineering guidance. It is not legal advice. Deployment in Bangladesh or any other jurisdiction needs counsel review against [docs/14-security-privacy-consent.md](docs/14-security-privacy-consent.md).

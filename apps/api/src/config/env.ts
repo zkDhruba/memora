@@ -17,4 +17,7 @@ export const env = {
   sessionCookieName: process.env.SESSION_COOKIE_NAME ?? "memora_session",
   sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
   isProd: process.env.NODE_ENV === "production",
+  /** Passphrase or base64(32 bytes). Used for MFA secret encryption. */
+  appDataKey: () =>
+    required("APP_DATA_KEY", "memora-local-app-data-key-dev-only"),
 };
