@@ -89,7 +89,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 4 — Chunk and library
 
-- [ ] **2.8** Chunker (chat / journal / doc rules)
+- [x] **2.8** Chunker (chat / journal / doc rules)
 - [ ] **2.9** Import progress page
 - [ ] **2.10** Reprocess one file only; purge one file only
 - [ ] **2.11** Additive second-import test (A stays when B is added)
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-13 | 2.8 | document_chunks + chat/journal/prose chunkers; chunk after parse / subject map |
 | 2026-10-13 | 2.7 | source_participants.retrieval_allowed; others/unknown false; subject true on map |
 | 2026-10-13 | 2.6 | WhatsApp bracketed+dashed parsers; participants/messages; subject-mapping API+UI |
 | 2026-10-13 | 2.5 | mammoth DOCX→md + unpdf digital PDF; scanned PDF → needs_ocr; fixtures + check-docx-pdf |
@@ -683,7 +684,31 @@ pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
 
 **Edge:** remapping a different name flips flags — previous subject becomes other+false; new subject true.
 
-**Fail if:** `other` rows ever default to `retrieval_allowed = true`; chunker later embeds them without checking the flag (guard for 2.8).
+**Fail if:** `other` rows ever default to `retrieval_allowed = true`; chunker embeds them without checking the flag.
+
+### 2.8 — Chunker (chat / journal / doc)
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api test
+# → chunker.test.ts (chat windows, journal dates, prose/owner-note)
+
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+
+# Document → chunks
+pnpm --filter @memora/api exec tsx scripts/check-chunk.ts
+# → ok document chunks N …
+
+# Chat → chunks after subject mapping
+pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
+# → ok chunks … subject … other …
+```
+
+**Happy path:** parsed documents write `document_chunks` (prose/journal rules). WhatsApp subject mapping writes chat windows (6 subject msgs, overlap 2) plus non-retrievable other-speaker chunks. `content_tsv` filled with `simple` FTS.
+
+**Edge:** other-speaker chunks have `retrieval_allowed = false`. Oversized single chat message is not split. Dated journal entries are not merged.
+
+**Fail if:** parse succeeds with zero chunks for non-empty text; other-speaker chunks are retrievable; chat chunking runs before subject mapping.
 
 ---
 

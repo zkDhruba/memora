@@ -52,6 +52,9 @@ describe("Participant retrieval_allowed flag (2.7)", () => {
       {} as never,
       {} as never,
       audit,
+      {
+        chunkChatFile: async () => 0,
+      } as never,
     );
 
     await db.insert(users).values({

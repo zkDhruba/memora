@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import {
+  documentChunks,
   documents,
   sourceFiles,
   sourceFileVersions,
@@ -10,6 +11,7 @@ import {
   type MemoraDb,
 } from "@memora/db";
 import { eq } from "drizzle-orm";
+import { ChunkPersistService } from "../chunking/chunk-persist.service";
 import { newId } from "../common/ids";
 import { DB } from "../db/db.tokens";
 import { ObjectStoreService } from "../storage/object-store.service";
@@ -39,6 +41,7 @@ export class DocumentParseService {
     @Inject(DocxParser) private readonly docxParser: DocxParser,
     @Inject(PdfParser) private readonly pdfParser: PdfParser,
     @Inject(WhatsAppParser) private readonly whatsappParser: WhatsAppParser,
+    @Inject(ChunkPersistService) private readonly chunks: ChunkPersistService,
   ) {}
 
   /**
@@ -190,6 +193,9 @@ export class DocumentParseService {
   }
 
   private async clearChatDerivatives(fileId: string) {
+    await this.db
+      .delete(documentChunks)
+      .where(eq(documentChunks.fileId, fileId));
     const threads = await this.db.query.sourceThreads.findMany({
       where: eq(sourceThreads.fileId, fileId),
     });
@@ -312,10 +318,14 @@ export class DocumentParseService {
     }
 
     await this.db
+      .delete(documentChunks)
+      .where(eq(documentChunks.fileId, input.fileId));
+    await this.db
       .delete(documents)
       .where(eq(documents.fileVersionId, input.versionId));
+    const documentId = newId();
     await this.db.insert(documents).values({
-      id: newId(),
+      id: documentId,
       personaId: input.personaId,
       fileVersionId: input.versionId,
       kind: input.parsed.kind,
@@ -324,6 +334,13 @@ export class DocumentParseService {
       textObjectKey,
       preview: input.parsed.preview,
       charCount: input.parsed.charCount,
+    });
+
+    const chunkCount = await this.chunks.chunkDocument({
+      personaId: input.personaId,
+      fileId: input.fileId,
+      fileVersionId: input.versionId,
+      documentId,
     });
 
     await this.db
@@ -342,6 +359,8 @@ export class DocumentParseService {
           storeInline: input.parsed.storeInline,
           documentDate: input.parsed.documentDate,
           ...(input.parsed.meta ?? {}),
+          chunkCount,
+          chunkedAt: new Date().toISOString(),
           processedAt: new Date().toISOString(),
           generation: input.generation,
         },

@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { NestFactory } from "@nestjs/core";
 import {
   createDb,
+  documentChunks,
   sourceFiles,
   sourceMessages,
   sourceParticipants,
@@ -288,6 +289,26 @@ async function main() {
           `retrieval_allowed expected Alice=true Bob=false, got ${JSON.stringify(byLabel)}`,
         );
       }
+      const chunks = await db.query.documentChunks.findMany({
+        where: eq(documentChunks.fileId, bracketId),
+      });
+      if (chunks.length < 1) throw new Error("expected chat chunks after mapping");
+      const subjectChunks = chunks.filter((c) => c.speakerRole === "subject");
+      const otherChunks = chunks.filter((c) => c.speakerRole === "other");
+      if (subjectChunks.some((c) => !c.retrievalAllowed)) {
+        throw new Error("subject chat chunks must be retrieval_allowed");
+      }
+      if (otherChunks.some((c) => c.retrievalAllowed)) {
+        throw new Error("other chat chunks must not be retrieval_allowed");
+      }
+      console.log(
+        "ok chunks",
+        chunks.length,
+        "subject",
+        subjectChunks.length,
+        "other",
+        otherChunks.length,
+      );
     } finally {
       await client.end({ timeout: 5 });
     }

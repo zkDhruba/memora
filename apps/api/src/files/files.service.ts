@@ -16,6 +16,7 @@ import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
+import { ChunkPersistService } from "../chunking/chunk-persist.service";
 import { DB } from "../db/db.tokens";
 import { PersonaAccessService } from "../personas/persona-access.service";
 import { IngestionQueueService } from "../jobs/ingestion-queue.service";
@@ -38,6 +39,7 @@ export class FilesService {
     @Inject(IngestionQueueService)
     private readonly ingestion: IngestionQueueService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ChunkPersistService) private readonly chunks: ChunkPersistService,
   ) {}
 
   async createImport(userId: string, personaId: string) {
@@ -204,6 +206,11 @@ export class FilesService {
         .where(eq(sourceFileVersions.id, version.id));
     }
 
+    const chunkCount = await this.chunks.chunkChatFile({
+      personaId,
+      fileId: file.id,
+    });
+
     await this.audit.record({
       actorUserId: userId,
       personaId,
@@ -213,6 +220,7 @@ export class FilesService {
       metadata: {
         participantId: body.participantId,
         rawLabel: participant.rawLabel,
+        chunkCount,
       },
     });
 
@@ -223,6 +231,7 @@ export class FilesService {
       status: "parsed" as const,
       subjectRetrievalAllowed: true,
       othersRetrievalAllowed: false,
+      chunkCount,
     };
   }
 

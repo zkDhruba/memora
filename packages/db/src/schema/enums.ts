@@ -109,3 +109,24 @@ export const sourceMessageKindEnum = pgEnum("source_message_kind", [
   "speech",
   "system",
 ]);
+
+export const chunkSpeakerRoleEnum = pgEnum("chunk_speaker_role", [
+  "subject",
+  "other",
+  "unknown",
+  "document",
+]);
+
+export const chunkSensitivityEnum = pgEnum("chunk_sensitivity", [
+  "general",
+  "sensitive",
+  "restricted",
+]);
+
+export const chunkSourceKindEnum = pgEnum("chunk_source_kind", [
+  "chat",
+  "journal",
+  "prose",
+  "owner_note",
+  "email",
+]);
