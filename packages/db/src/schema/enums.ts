@@ -212,3 +212,21 @@ export const timePrecisionEnum = pgEnum("time_precision", [
   "approximate",
   "unknown",
 ]);
+
+export const conversationMessageRoleEnum = pgEnum("conversation_message_role", [
+  "user",
+  "assistant",
+  "system",
+]);
+
+/** Terminal states: complete | aborted | error. streaming is in-flight. */
+export const conversationMessageStatusEnum = pgEnum(
+  "conversation_message_status",
+  ["pending", "streaming", "complete", "aborted", "error"],
+);
+
+export const messageQualityEnum = pgEnum("message_quality", [
+  "ok",
+  "degraded",
+  "abstained",
+]);

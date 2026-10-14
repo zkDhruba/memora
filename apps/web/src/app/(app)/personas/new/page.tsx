@@ -41,7 +41,8 @@ export default function NewPersonaPage() {
     if (consentProvider) {
       consents.push({
         purpose: "send_to_provider" as const,
-        providerKey: "anthropic",
+        // Chat/embeddings currently call OpenRouter (testing). Must match provider.
+        providerKey: "openrouter",
         statementVersion: STATEMENT_VERSION,
       });
     }
@@ -62,7 +63,7 @@ export default function NewPersonaPage() {
             statement: attestationStatement,
           },
           consents,
-          providerKey: consentProvider ? "anthropic" : undefined,
+          providerKey: consentProvider ? "openrouter" : undefined,
         }),
       });
       // No publish step — land in Chat hub with the new persona selected.
@@ -92,7 +93,8 @@ export default function NewPersonaPage() {
         </h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Attestation and consent are required. After create you go straight to
-          Chat — there is no publish step (send still needs converse consent).
+          Chat — there is no publish step. Sending a message needs{" "}
+          <em>converse</em> plus <em>send to provider</em> (OpenRouter).
         </p>
       </div>
 
@@ -189,10 +191,11 @@ export default function NewPersonaPage() {
               checked={consentProvider}
               onChange={(e) => setConsentProvider(e.target.checked)}
             />
-            Send extracts to the AI provider (Anthropic)
+            Send prompts/extracts to the AI provider (OpenRouter)
           </label>
           <p className="text-xs text-[var(--muted)]">
-            Without host + converse consent the persona stays <em>draft</em>.
+            Without host + converse the persona stays <em>draft</em>. Without
+            provider consent, Chat opens but Send fails with CONSENT_REQUIRED.
           </p>
         </fieldset>
 

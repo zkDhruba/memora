@@ -16,4 +16,5 @@ export * from "./chunk-embeddings";
 export * from "./personality";
 export * from "./conversations";
 export * from "./memories";
+export * from "./chat-persistence";
 export * from "./relations";

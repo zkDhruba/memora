@@ -120,7 +120,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 4 — Chat and quotas
 
-- [ ] **3.8** SSE streaming chat + persistence
+- [x] **3.8** SSE streaming chat + persistence
 - [ ] **3.9** Citations + abstention rewrite
 - [ ] **3.10** Conversational memory writer
 - [ ] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.8 | SSE chat + conversation_messages; abort finalizes row; Chat UI composer streams tokens |
 | 2026-10-14 | 3.7 | PromptBuilder + token budgets; drop lowest-score sources first; disclosure/boundaries protected |
 | 2026-10-14 | 3.6 | HybridRetrievalService: vector+FTS RRF, audience SQL filter, PersonaScope; sentinel isolation test |
 | 2026-10-14 | 3.5 | review-queue + trait/memory decisions; confirm → retrievalAllowed; correct supersedes memory; /review UI |
@@ -924,6 +925,26 @@ pnpm --filter @memora/api test -- src/prompt/
 **Edge:** relationship note is truncated before hard boundary lines are dropped. Empty retrieval still emits disclosure.
 
 **Fail if:** overflowing sources remove `DISCLOSURE_SENTENCE` from the system prompt, or `chunk-0` (lowest score) is kept while higher scores are dropped.
+
+### 3.8 — SSE streaming chat + persistence
+
+```bash
+pnpm db:migrate
+# → conversation_messages, message_citations, usage_records, message_feedback
+
+pnpm --filter @memora/api test -- src/chat/
+# → abort mid-stream → assistant status aborted (not stuck streaming)
+
+# API on :4000
+pnpm --filter @memora/api exec tsx scripts/check-chat-sse.ts
+# → ok token + done; assistant complete; abort → terminal row
+
+# UI: /chat — select persona → Send streams tokens (needs OPENROUTER_API_KEY for live LLM)
+```
+
+**Edge:** client disconnect aborts provider stream but still writes a terminal assistant row (`aborted`/`complete`/`error`), never left as `streaming`.
+
+**Fail if:** assistant row remains `status=streaming` after the request ends.
 
 ---
 

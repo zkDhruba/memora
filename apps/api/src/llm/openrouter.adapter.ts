@@ -6,6 +6,8 @@ import type {
   LlmCompleteRequest,
   LlmCompleteResult,
   LlmJsonRequest,
+  LlmStreamChunk,
+  LlmStreamRequest,
 } from "./llm.types";
 import { ProviderConsentService } from "./provider-consent.service";
 
@@ -136,6 +138,166 @@ export class OpenRouterAdapter implements LlmPort {
       outputTokens: parsed.usage?.completion_tokens ?? null,
       finishReason: parsed.choices?.[0]?.finish_reason ?? null,
       quality: "ok",
+    };
+  }
+
+  async *stream(request: LlmStreamRequest): AsyncIterable<LlmStreamChunk> {
+    if (request.provider !== "openrouter") {
+      throw new ApiException(
+        HttpStatus.BAD_REQUEST,
+        "PROVIDER_UNSUPPORTED",
+        `OpenRouter adapter cannot call provider "${request.provider}".`,
+        { provider: request.provider },
+      );
+    }
+
+    await this.consent.assertCanCallProvider(
+      request.personaId,
+      request.provider,
+    );
+
+    const apiKey = env.openrouter.apiKey();
+    if (!apiKey) {
+      throw new ApiException(
+        HttpStatus.SERVICE_UNAVAILABLE,
+        "LLM_NOT_CONFIGURED",
+        "OPENROUTER_API_KEY is not set.",
+      );
+    }
+
+    const model = request.model || env.openrouter.defaultModel();
+    const body = {
+      model,
+      messages: request.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      max_tokens: request.maxOutputTokens ?? 1024,
+      temperature: request.temperature ?? 0.4,
+      stream: true,
+    };
+
+    let res: Response;
+    try {
+      res = await fetch(env.openrouter.baseUrl(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": env.openrouter.httpReferer(),
+          "X-Title": env.openrouter.appTitle(),
+        },
+        body: JSON.stringify(body),
+        signal: request.signal,
+      });
+    } catch (err) {
+      if (request.signal?.aborted) {
+        yield {
+          type: "done",
+          text: "",
+          model,
+          provider: "openrouter",
+          inputTokens: null,
+          outputTokens: null,
+          finishReason: "abort",
+          quality: "degraded",
+          aborted: true,
+        };
+        return;
+      }
+      this.log.error(`OpenRouter stream network error: ${(err as Error).message}`);
+      throw new ApiException(
+        HttpStatus.BAD_GATEWAY,
+        "LLM_UPSTREAM_ERROR",
+        "Failed to reach OpenRouter.",
+        { cause: (err as Error).message },
+      );
+    }
+
+    if (!res.ok || !res.body) {
+      const raw = await res.text().catch(() => "");
+      throw new ApiException(
+        HttpStatus.BAD_GATEWAY,
+        "LLM_UPSTREAM_ERROR",
+        `OpenRouter stream HTTP ${res.status}`,
+        { status: res.status, body: raw.slice(0, 200) },
+      );
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let assembled = "";
+    let aborted = false;
+    let finishReason: string | null = null;
+    let inputTokens: number | null = null;
+    let outputTokens: number | null = null;
+
+    try {
+      while (true) {
+        if (request.signal?.aborted) {
+          aborted = true;
+          await reader.cancel().catch(() => undefined);
+          break;
+        }
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === "[DONE]") continue;
+          let parsed: {
+            choices?: Array<{
+              delta?: { content?: string | null };
+              finish_reason?: string | null;
+            }>;
+            usage?: {
+              prompt_tokens?: number;
+              completion_tokens?: number;
+            };
+            model?: string;
+          };
+          try {
+            parsed = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (delta) {
+            assembled += delta;
+            yield { type: "token", text: delta };
+          }
+          if (parsed.choices?.[0]?.finish_reason) {
+            finishReason = parsed.choices[0].finish_reason;
+          }
+          if (parsed.usage) {
+            inputTokens = parsed.usage.prompt_tokens ?? inputTokens;
+            outputTokens = parsed.usage.completion_tokens ?? outputTokens;
+          }
+        }
+      }
+    } catch (err) {
+      if (request.signal?.aborted) {
+        aborted = true;
+      } else {
+        throw err;
+      }
+    }
+
+    yield {
+      type: "done",
+      text: assembled,
+      model,
+      provider: "openrouter",
+      inputTokens,
+      outputTokens,
+      finishReason: aborted ? "abort" : finishReason,
+      quality: aborted ? "degraded" : "ok",
+      aborted,
     };
   }
 

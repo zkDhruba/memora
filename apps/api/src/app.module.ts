@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
+import { ChatModule } from "./chat/chat.module";
 import { DbModule } from "./db/db.module";
 import { FilesModule } from "./files/files.module";
 import { HealthController } from "./health.controller";
@@ -35,6 +36,7 @@ import { StorageModule } from "./storage/storage.module";
     MemoryModule,
     RetrievalModule,
     PromptModule,
+    ChatModule,
     ReviewModule,
     FilesModule,
   ],

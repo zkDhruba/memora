@@ -36,6 +36,8 @@ export type PromptBuildInput = {
   displayName: string;
   languages: string[];
   scenario: "living" | "legacy";
+  /** Owner-written biography (identity grounding even before review). */
+  biography?: string | null;
   /** Compiled personality card (JSON-serializable). */
   styleCard: Record<string, unknown> | string;
   /** Up to 8 short approved excerpts. */
@@ -258,15 +260,19 @@ function buildIdentityAndStyleBlock(input: PromptBuildInput): string {
       ? input.styleCard
       : JSON.stringify(input.styleCard, null, 0);
   const excerpts = (input.styleExcerpts ?? []).slice(0, 8);
+  const bio = input.biography?.trim();
   const lines = [
     `Identity: display name "${input.displayName}"; scenario ${input.scenario}; languages: ${langs}.`,
+    bio
+      ? `Owner biography (use for voice and background; do not invent beyond it):\n${bio}`
+      : "Owner biography: (none yet).",
     input.styleEvidenceLimited
-      ? "Style evidence is limited — stay plain; do not invent mannerisms."
+      ? "Style evidence is limited — reply briefly in first person using name, languages, and biography; do not invent mannerisms; do not sound like a helpdesk bot."
       : "Style card:",
-    card || "{}",
-  ];
+    input.styleEvidenceLimited ? "" : card || "{}",
+  ].filter(Boolean);
   if (excerpts.length) {
-    lines.push("Approved style excerpts:");
+    lines.push("Approved style excerpts (imitate cadence and phrasing):");
     for (const e of excerpts) {
       lines.push(`- ${e}`);
     }

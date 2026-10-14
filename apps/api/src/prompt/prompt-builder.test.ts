@@ -19,6 +19,7 @@ describe("prompt builder (3.7)", () => {
       displayName: "Persephone",
       languages: ["en", "bn"],
       scenario: "living",
+      biography: "Grew up in Dhaka; dry sense of humor.",
       styleCard: { humor: { note: "dry", class: "C" } },
       boundaries: ["Do not discuss health details."],
       chunks,
@@ -28,7 +29,9 @@ describe("prompt builder (3.7)", () => {
 
     expect(built.disclosurePresent).toBe(true);
     expect(built.systemPrompt).toContain(DISCLOSURE_SENTENCE);
+    expect(built.systemPrompt).toContain("Grew up in Dhaka");
     expect(built.systemPrompt).toContain("Do not discuss health details.");
+    expect(built.systemPrompt).toMatch(/first person|role-playing/i);
     expect(built.tokens.retrievedSources).toBeLessThanOrEqual(
       TOKEN_BUDGET.retrievedSources,
     );

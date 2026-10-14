@@ -2,6 +2,8 @@ import type {
   LlmCompleteRequest,
   LlmCompleteResult,
   LlmJsonRequest,
+  LlmStreamChunk,
+  LlmStreamRequest,
 } from "./llm.types";
 
 /**
@@ -15,6 +17,9 @@ export interface LlmPort {
     data: T;
     result: LlmCompleteResult;
   }>;
+
+  /** Token stream for chat (3.8). Honors AbortSignal to stop provider spend. */
+  stream(request: LlmStreamRequest): AsyncIterable<LlmStreamChunk>;
 }
 
 export const LLM_PORT = Symbol("LLM_PORT");

@@ -55,3 +55,11 @@ export {
   type ReviewDecisionBody,
   type MemoryCorrectBody,
 } from "./review";
+export {
+  createConversationBodySchema,
+  sendChatMessageBodySchema,
+  messageFeedbackBodySchema,
+  type CreateConversationBody,
+  type SendChatMessageBody,
+  type MessageFeedbackBody,
+} from "./chat";

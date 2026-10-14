@@ -104,6 +104,33 @@ export default function PersonaDetailPage() {
     }
   }
 
+  async function onGrantProviderConsent() {
+    setPending(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiFetch(`/personas/${id}/consents`, {
+        method: "POST",
+        body: JSON.stringify({
+          purpose: "send_to_provider",
+          providerKey: "openrouter",
+          statementVersion: "2026-10-consent-v1",
+        }),
+      });
+      // Persona.providerKey must match for some consent edge cases.
+      await apiFetch(`/personas/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ providerKey: "openrouter" }),
+      });
+      setMessage("Granted send_to_provider for OpenRouter. You can chat now.");
+      load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
   async function onSave(e: FormEvent) {
     e.preventDefault();
     setPending(true);
@@ -233,6 +260,26 @@ export default function PersonaDetailPage() {
             ))}
           </ul>
         )}
+        {canMap &&
+        !persona.consents.some(
+          (c) =>
+            c.purpose === "send_to_provider" &&
+            (c.providerKey === "openrouter" || !c.providerKey),
+        ) ? (
+          <div className="mt-3">
+            <p className="text-xs text-[var(--muted)]">
+              Chat Send needs <code>send_to_provider</code> for OpenRouter.
+            </p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => void onGrantProviderConsent()}
+              className="mt-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--background)] disabled:opacity-50"
+            >
+              Grant OpenRouter provider consent
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">

@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  FormEvent,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -14,6 +16,10 @@ import { DisclosureBanner } from "../../../components/DisclosureBanner";
 import { EmptyState } from "../../../components/EmptyState";
 import {
   apiFetch,
+  streamChatMessage,
+  type ConversationDetail,
+  type ConversationListItem,
+  type ConversationMessage,
   type PersonaListItem,
   type PlanResponse,
 } from "../../../lib/api";
@@ -28,6 +34,14 @@ function ChatHubInner() {
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [sessions, setSessions] = useState<ConversationListItem[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +76,62 @@ function ChatHubInner() {
     [personas, selectedId],
   );
 
+  const loadSessions = useCallback(async (personaId: string) => {
+    const res = await apiFetch<{ data: ConversationListItem[] }>(
+      `/personas/${personaId}/conversations`,
+    );
+    setSessions(res.data);
+    return res.data;
+  }, []);
+
+  const openSession = useCallback(
+    async (personaId: string, id: string) => {
+      const detail = await apiFetch<ConversationDetail>(
+        `/personas/${personaId}/conversations/${id}`,
+      );
+      setSessionId(detail.id);
+      setMessages(detail.messages);
+      setStreamingText("");
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!selected?.id || !selected.chatEligible) {
+      setSessions([]);
+      setSessionId(null);
+      setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await loadSessions(selected.id);
+        if (cancelled) return;
+        if (list[0]) {
+          await openSession(selected.id, list[0].id);
+        } else {
+          const created = await apiFetch<{ id: string }>(
+            `/personas/${selected.id}/conversations`,
+            { method: "POST", body: "{}" },
+          );
+          if (cancelled) return;
+          await loadSessions(selected.id);
+          await openSession(selected.id, created.id);
+        }
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected?.id, selected?.chatEligible, loadSessions, openSession]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingText]);
+
   function selectPersona(id: string) {
     router.replace(`/chat?persona=${encodeURIComponent(id)}`);
   }
@@ -91,11 +161,73 @@ function ChatHubInner() {
     }
   }
 
+  async function onSend(e: FormEvent) {
+    e.preventDefault();
+    if (!selected?.chatEligible || !sessionId || !draft.trim() || sending) {
+      return;
+    }
+    const text = draft.trim();
+    setDraft("");
+    setSending(true);
+    setError(null);
+    setStreamingText("");
+    const tempUser: ConversationMessage = {
+      id: `temp-${Date.now()}`,
+      role: "user",
+      content: text,
+      status: "complete",
+      model: null,
+      quality: null,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((m) => [...m, tempUser]);
+
+    try {
+      let assembled = "";
+      await streamChatMessage(selected.id, sessionId, text, {
+        onToken: (t) => {
+          assembled += t;
+          setStreamingText(assembled);
+        },
+        onError: (data) => {
+          setError(data.message ?? data.code ?? "Chat error");
+        },
+        onDone: () => {
+          setStreamingText("");
+        },
+      });
+      const detail = await apiFetch<ConversationDetail>(
+        `/personas/${selected.id}/conversations/${sessionId}`,
+      );
+      setMessages(detail.messages);
+      setStreamingText("");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function onNewChat() {
+    if (!selected) return;
+    setError(null);
+    try {
+      const created = await apiFetch<{ id: string }>(
+        `/personas/${selected.id}/conversations`,
+        { method: "POST", body: "{}" },
+      );
+      await loadSessions(selected.id);
+      await openSession(selected.id, created.id);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-[var(--muted)]">Loading chat hub…</p>;
   }
 
-  if (error) {
+  if (error && personas.length === 0) {
     return (
       <p className="text-sm text-[var(--danger)]" role="alert">
         {error}
@@ -136,12 +268,17 @@ function ChatHubInner() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Chat</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Switch personas below. New personas show up here as soon as they are
-          created. Use ↑/↓ when the list is focused.
+          Switch personas below. Use ↑/↓ when the list is focused.
         </p>
       </div>
 
       <DisclosureBanner />
+
+      {error ? (
+        <p className="text-sm text-[var(--danger)]" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-[220px_1fr]">
         <aside className="rounded-lg border border-[var(--border)] bg-[var(--surface)]">
@@ -192,57 +329,93 @@ function ChatHubInner() {
         >
           {selected ? (
             <>
-              <header className="border-b border-[var(--border)] px-4 py-3">
-                <h2 className="font-medium">{selected.displayName}</h2>
-                <p className="text-xs text-[var(--muted)]">
-                  {selected.scenario} · {selected.status} · your role:{" "}
-                  {selected.role}
-                </p>
+              <header className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
+                <div>
+                  <h2 className="font-medium">{selected.displayName}</h2>
+                  <p className="text-xs text-[var(--muted)]">
+                    {selected.scenario} · {selected.status}
+                    {sessions.length > 1
+                      ? ` · ${sessions.length} conversations`
+                      : ""}
+                  </p>
+                </div>
+                {selected.chatEligible ? (
+                  <button
+                    type="button"
+                    onClick={() => void onNewChat()}
+                    className="text-xs text-[var(--accent)] underline underline-offset-2"
+                  >
+                    New chat
+                  </button>
+                ) : null}
               </header>
 
-              <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-8 text-sm">
+              <div className="flex flex-1 flex-col gap-3 overflow-auto px-4 py-4 text-sm">
                 {!selected.chatEligible ? (
                   <p className="text-[var(--warn)]">
                     Conversations stay limited until{" "}
                     <strong>converse</strong> consent is granted on the persona.
-                    You can still open this panel — sending unlocks after
-                    consent.
                   </p>
                 ) : (
-                  <p className="text-[var(--muted)]">
-                    This record may still be thin until you upload and review
-                    sources (Phase 2–3). Suggested starter: ask what is in the
-                    biography — never invent missing life facts.
-                  </p>
+                  <>
+                    {messages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={
+                          m.role === "user"
+                            ? "ml-8 rounded-md bg-[var(--background)] px-3 py-2"
+                            : "mr-8 rounded-md border border-[var(--border)] px-3 py-2"
+                        }
+                      >
+                        <p className="text-xs text-[var(--muted)]">
+                          {m.role}
+                          {m.status !== "complete" ? ` · ${m.status}` : ""}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap">{m.content}</p>
+                      </div>
+                    ))}
+                    {streamingText ? (
+                      <div className="mr-8 rounded-md border border-[var(--border)] px-3 py-2">
+                        <p className="text-xs text-[var(--muted)]">
+                          assistant · streaming
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap">
+                          {streamingText}
+                        </p>
+                      </div>
+                    ) : null}
+                    <div ref={bottomRef} />
+                  </>
                 )}
-                <p className="text-[var(--muted)]">
-                  Streaming replies ship in Phase 3. The picker and disclosure
-                  are live now so create → Chat works without a publish step.
-                </p>
-                <Link
-                  href={`/personas/${selected.id}`}
-                  className="text-[var(--accent)]"
-                >
-                  Open persona overview →
-                </Link>
               </div>
 
               <footer className="border-t border-[var(--border)] px-4 py-3">
-                <div className="flex gap-2">
+                <form className="flex gap-2" onSubmit={onSend}>
                   <input
-                    disabled
-                    aria-label="Message composer (coming in Phase 3)"
-                    placeholder="Message composer unlocks with streaming chat (Phase 3)"
-                    className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--muted)]"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    disabled={!selected.chatEligible || sending || !sessionId}
+                    aria-label="Message"
+                    placeholder={
+                      selected.chatEligible
+                        ? "Ask about what is in the records…"
+                        : "Composer unlocks after converse consent"
+                    }
+                    className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm disabled:text-[var(--muted)]"
                   />
                   <button
-                    type="button"
-                    disabled
-                    className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white opacity-50"
+                    type="submit"
+                    disabled={
+                      !selected.chatEligible ||
+                      sending ||
+                      !sessionId ||
+                      !draft.trim()
+                    }
+                    className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
-                    Send
+                    {sending ? "…" : "Send"}
                   </button>
-                </div>
+                </form>
               </footer>
             </>
           ) : (

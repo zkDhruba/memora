@@ -35,6 +35,25 @@ export type LlmCompleteResult = {
   quality: "ok" | "degraded";
 };
 
+export type LlmStreamRequest = LlmCompleteRequest & {
+  /** Abort stops provider spend; caller still persists partial text. */
+  signal?: AbortSignal;
+};
+
+export type LlmStreamChunk =
+  | { type: "token"; text: string }
+  | {
+      type: "done";
+      text: string;
+      model: string;
+      provider: string;
+      inputTokens: number | null;
+      outputTokens: number | null;
+      finishReason: string | null;
+      quality: "ok" | "degraded";
+      aborted: boolean;
+    };
+
 export type LlmJsonRequest<T> = LlmCompleteRequest & {
   /** Hint appended so the model returns JSON matching the schema. */
   schemaDescription: string;

@@ -211,3 +211,102 @@ export type ReviewQueue = {
   memories: ReviewMemoryItem[];
   pendingCount: number;
 };
+
+export type ConversationListItem = {
+  id: string;
+  title: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConversationMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  status: string;
+  model: string | null;
+  quality: string | null;
+  createdAt: string;
+};
+
+export type ConversationDetail = {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  messages: ConversationMessage[];
+};
+
+export type ChatSseHandlers = {
+  onToken?: (text: string) => void;
+  onCitation?: (data: Record<string, unknown>) => void;
+  onDone?: (data: Record<string, unknown>) => void;
+  onError?: (data: { code?: string; message?: string }) => void;
+};
+
+/** POST message and consume SSE (token / citation / done / error). */
+export async function streamChatMessage(
+  personaId: string,
+  sessionId: string,
+  text: string,
+  handlers: ChatSseHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/personas/${personaId}/conversations/${sessionId}/messages`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal,
+    },
+  );
+  if (!res.ok || !res.body) {
+    const err = (await res.json().catch(() => null)) as ApiError | null;
+    throw Object.assign(
+      new Error(err?.error?.message ?? `Chat failed (${res.status})`),
+      {
+        status: res.status,
+        code: err?.error?.code ?? "UNKNOWN",
+      },
+    );
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let eventName = "message";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n");
+    buffer = parts.pop() ?? "";
+    for (const line of parts) {
+      if (line.startsWith("event:")) {
+        eventName = line.slice(6).trim();
+        continue;
+      }
+      if (line.startsWith("data:")) {
+        const raw = line.slice(5).trim();
+        let data: Record<string, unknown> = {};
+        try {
+          data = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+        if (eventName === "token" && typeof data.text === "string") {
+          handlers.onToken?.(data.text);
+        } else if (eventName === "citation") {
+          handlers.onCitation?.(data);
+        } else if (eventName === "done") {
+          handlers.onDone?.(data);
+        } else if (eventName === "error") {
+          handlers.onError?.(data as { code?: string; message?: string });
+        }
+        eventName = "message";
+      }
+    }
+  }
+}
