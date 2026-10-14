@@ -7,6 +7,7 @@ import { JobsModule } from "./jobs/jobs.module";
 import { EmbeddingsModule } from "./embeddings/embeddings.module";
 import { LlmModule } from "./llm/llm.module";
 import { MailModule } from "./mail/mail.module";
+import { PersonalityModule } from "./personality/personality.module";
 import { PersonasModule } from "./personas/personas.module";
 import { PlansModule } from "./plans/plans.module";
 import { RedisModule } from "./redis/redis.module";
@@ -26,6 +27,7 @@ import { StorageModule } from "./storage/storage.module";
     AuthModule,
     PlansModule,
     PersonasModule,
+    PersonalityModule,
     FilesModule,
   ],
   controllers: [HealthController],

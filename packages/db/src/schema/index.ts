@@ -13,4 +13,5 @@ export * from "./documents";
 export * from "./chat-sources";
 export * from "./chunks";
 export * from "./chunk-embeddings";
+export * from "./personality";
 export * from "./relations";

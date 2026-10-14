@@ -64,6 +64,13 @@
       "when": 1791959657074,
       "tag": "0008_naive_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791960317351,
+      "tag": "0009_absent_captain_flint",
+      "breakpoints": true
     }
   ]
 }

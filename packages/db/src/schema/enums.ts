@@ -130,3 +130,38 @@ export const chunkSourceKindEnum = pgEnum("chunk_source_kind", [
   "owner_note",
   "email",
 ]);
+
+export const traitFacetEnum = pgEnum("trait_facet", [
+  "formality",
+  "sentence_length",
+  "lexicon",
+  "greeting",
+  "farewell",
+  "humor",
+  "emotion",
+  "habit",
+  "interest_expression",
+  "storytelling",
+  "code_switching",
+  "address_term",
+]);
+
+export const knowledgeClassEnum = pgEnum("knowledge_class", [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+]);
+
+export const traitStatusEnum = pgEnum("trait_status", [
+  "pending_review",
+  "confirmed",
+  "rejected",
+  "superseded",
+]);
+
+export const traitPolarityEnum = pgEnum("trait_polarity", [
+  "observed",
+  "owner_requested",
+]);

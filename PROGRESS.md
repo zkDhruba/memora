@@ -109,7 +109,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 2 — Extract and review
 
-- [ ] **3.3** Style stats + trait drafts with quote check
+- [x] **3.3** Style stats + trait drafts with quote check
 - [ ] **3.4** Memory extractor; biographical ≠ conversational
 - [ ] **3.5** Review inbox (confirm / reject / correct)
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.3 | Style stats + class B/C trait drafts; quote gate drops fakes; personality_* tables |
 | 2026-10-14 | 3.2 | chunk_embeddings + HNSW; EmbeddingPort via OpenRouter; cosine nearest + check-embeddings |
 | 2026-10-14 | 3.1 | LlmPort + OpenRouter adapter (testing); ProviderConsentService; refuse without send_to_provider |
 | 2026-10-14 | 2.11 | Additive second import: A chunks intact after B; sum counts; FILE_DUPLICATE; Phase 2 done |
@@ -833,6 +834,24 @@ pnpm --filter @memora/api exec tsx scripts/check-embeddings.ts
 **Edge:** no `send_to_provider` → embed refused (`CONSENT_REQUIRED`). Other-speaker chunks with `retrieval_allowed=false` are not embedded.
 
 **Fail if:** vectors missing after embed; nearest order ignores cosine (tea query returns bike first).
+
+### 3.3 — Style stats + trait drafts (quote check)
+
+```bash
+pnpm db:migrate
+# → personality_profiles / traits / evidence
+
+pnpm --filter @memora/api test
+# → style-stats.test.ts + quote-check.test.ts green
+
+pnpm --filter @memora/api exec tsx scripts/check-style-extract.ts
+# → ok fake quote dropped by quote check
+# → ok style extract — class B (+ C if OPENROUTER_API_KEY set)
+```
+
+**Edge:** fabricated quote not in the message sample is dropped (never inserted). Traits start as `pending_review` (review UI is 3.5).
+
+**Fail if:** fake quote becomes a stored trait; style extract wipes prior confirmed traits (must be additive — 3.3 only inserts pending drafts).
 
 ---
 
