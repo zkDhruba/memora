@@ -18,6 +18,14 @@ export function quoteIsGrounded(quote: string, corpus: string): boolean {
 export function filterGroundedTraits<
   T extends { quote: string; value: string },
 >(candidates: T[], corpus: string): { kept: T[]; dropped: T[] } {
+  return filterGroundedByQuote(candidates, corpus);
+}
+
+/** Generic quote gate for traits and memory candidates. */
+export function filterGroundedByQuote<T extends { quote: string }>(
+  candidates: T[],
+  corpus: string,
+): { kept: T[]; dropped: T[] } {
   const kept: T[] = [];
   const dropped: T[] = [];
   for (const c of candidates) {

@@ -165,3 +165,50 @@ export const traitPolarityEnum = pgEnum("trait_polarity", [
   "observed",
   "owner_requested",
 ]);
+
+export const memoryDomainEnum = pgEnum("memory_domain", [
+  "biographical",
+  "conversational",
+]);
+
+export const memoryTypeEnum = pgEnum("memory_type", [
+  "semantic",
+  "episodic",
+  "autobiographical",
+  "relationship",
+  "temporal",
+  "session_fact",
+  "session_preference",
+]);
+
+export const memoryStatusEnum = pgEnum("memory_status", [
+  "pending_review",
+  "confirmed",
+  "rejected",
+  "superseded",
+  "conflict",
+  "retracted",
+]);
+
+export const memoryOriginEnum = pgEnum("memory_origin", [
+  "extracted",
+  "owner_entered",
+  "conversation",
+]);
+
+export const memorySensitivityEnum = pgEnum("memory_sensitivity", [
+  "none",
+  "health",
+  "belief",
+  "minor",
+  "financial",
+  "other",
+]);
+
+export const timePrecisionEnum = pgEnum("time_precision", [
+  "day",
+  "month",
+  "year",
+  "approximate",
+  "unknown",
+]);

@@ -110,7 +110,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 2 — Extract and review
 
 - [x] **3.3** Style stats + trait drafts with quote check
-- [ ] **3.4** Memory extractor; biographical ≠ conversational
+- [x] **3.4** Memory extractor; biographical ≠ conversational
 - [ ] **3.5** Review inbox (confirm / reject / correct)
 
 ### Bite 3 — Retrieval
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.4 | memories + domain check; bio extract + quote gate; searchBiographical ≠ conversational |
 | 2026-10-14 | 3.3 | Style stats + class B/C trait drafts; quote gate drops fakes; personality_* tables |
 | 2026-10-14 | 3.2 | chunk_embeddings + HNSW; EmbeddingPort via OpenRouter; cosine nearest + check-embeddings |
 | 2026-10-14 | 3.1 | LlmPort + OpenRouter adapter (testing); ProviderConsentService; refuse without send_to_provider |
@@ -852,6 +853,25 @@ pnpm --filter @memora/api exec tsx scripts/check-style-extract.ts
 **Edge:** fabricated quote not in the message sample is dropped (never inserted). Traits start as `pending_review` (review UI is 3.5).
 
 **Fail if:** fake quote becomes a stored trait; style extract wipes prior confirmed traits (must be additive — 3.3 only inserts pending drafts).
+
+### 3.4 — Memory extractor (biographical ≠ conversational)
+
+```bash
+pnpm db:migrate
+# → memories, memory_evidence, conversation_sessions + domain check
+
+pnpm --filter @memora/api test
+# → memory.repository.test.ts (conversational → biographical rejected)
+
+pnpm --filter @memora/api exec tsx scripts/check-memory-extract.ts
+# → ok conversational insert into biographical fails
+# → ok fake memory quote dropped
+# → ok searchBiographical ≠ searchConversational
+```
+
+**Edge:** extracted bio without quote → `MEMORY_EVIDENCE_REQUIRED`. Conversational cannot attach chunk evidence.
+
+**Fail if:** `searchBiographical` returns session memories; bio insert accepts `conversationSessionId`.
 
 ---
 
