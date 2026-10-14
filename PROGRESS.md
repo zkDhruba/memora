@@ -27,7 +27,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 | --- | --- | --- | --- |
 | 0 | Planning / docs | done | Architecture docs complete |
 | 1 | Platform foundation | done | Auth, plans, personas, audit, shell, CI |
-| 2 | Ingestion | in_progress | Upload, parse, chunk, additive feeds |
+| 2 | Ingestion | done | Upload, parse, chunk, additive feeds |
 | 3 | AI persona (MVP) | todo | Review, RAG, streaming chat, quotas |
 | 4 | Personality / relationships | todo | After MVP |
 | 5 | Images | todo | No voice |
@@ -69,7 +69,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ## Phase 2 — Ingestion
 
-**Phase status:** `in_progress`
+**Phase status:** `done`
 
 ### Bite 1 — Upload
 
@@ -92,7 +92,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 - [x] **2.8** Chunker (chat / journal / doc rules)
 - [x] **2.9** Import progress page
 - [x] **2.10** Reprocess one file only; purge one file only
-- [ ] **2.11** Additive second-import test (A stays when B is added)
+- [x] **2.11** Additive second-import test (A stays when B is added)
 
 **Phase 2 done when:** uploads accumulate; duplicate hash safe; purge of A leaves B.
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 2.11 | Additive second import: A chunks intact after B; sum counts; FILE_DUPLICATE; Phase 2 done |
 | 2026-10-14 | 2.10 | DELETE file/import purge (chunks/messages/docs/objects); POST reprocess; UI Delete; check-purge |
 | 2026-10-14 | 1.7+ | POST /personas/:id/restore + dashboard Restore; soft-delete still counts until purge (Free slot trap fixed) |
 | 2026-10-14 | 2.9+ | Unblock stuck PNG uploads → needs_attention; reject images in parse + UI; terminal progress when unsupported |
@@ -764,6 +765,29 @@ pnpm --filter @memora/api test
 **Edge:** purge of file A does not remove file B’s chunks. Reprocess clears only that file’s derivatives then re-parses (worker must be running).
 
 **Fail if:** deleting A removes B’s chunks; Delete leaves `needs_attention`/`parsed` rows still retrievable for A.
+
+### 2.11 — Additive second-import test
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+# Worker optional — script starts its own:
+pnpm --filter @memora/api exec tsx scripts/check-additive-import.ts
+# → ok import 1 file A parsed
+# → ok import 2 file B parsed
+# → ok additive: A intact (n) + B (m) = n+m
+# → ok duplicate SHA-256 rejected (FILE_DUPLICATE)
+# → ok additive second-import check passed
+```
+
+**Browser**
+1. Persona → New import → upload journal A → wait until parsed
+2. New import again → upload different journal B → A still listed; both have content
+3. Re-upload the exact same bytes as A → expect duplicate / conflict error
+
+**Edge:** confirmed biographical *memories* are Phase 3; this check uses chunks as the Phase 2 stand-in for “A’s knowledge stays.”
+
+**Fail if:** second import wipes A’s chunks; total ≠ A+B; duplicate upload succeeds as a second corpus.
 
 ---
 
