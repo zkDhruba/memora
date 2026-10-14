@@ -116,7 +116,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 3 — Retrieval
 
 - [x] **3.6** Hybrid retrieval + audience filter; sentinel isolation test
-- [ ] **3.7** Prompt builder + token trimmer
+- [x] **3.7** Prompt builder + token trimmer
 
 ### Bite 4 — Chat and quotas
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.7 | PromptBuilder + token budgets; drop lowest-score sources first; disclosure/boundaries protected |
 | 2026-10-14 | 3.6 | HybridRetrievalService: vector+FTS RRF, audience SQL filter, PersonaScope; sentinel isolation test |
 | 2026-10-14 | 3.5 | review-queue + trait/memory decisions; confirm → retrievalAllowed; correct supersedes memory; /review UI |
 | 2026-10-14 | 3.4 | memories + domain check; bio extract + quote gate; searchBiographical ≠ conversational |
@@ -910,6 +911,19 @@ pnpm --filter @memora/api exec tsx scripts/check-retrieval-sentinel.ts
 **Edge:** friend membership cannot retrieve `audience=private` chunks/memories. Querying persona A with B’s sentinel returns no B content.
 
 **Fail if:** any hit for persona A contains persona B’s sentinel string.
+
+### 3.7 — Prompt builder + token trimmer
+
+```bash
+pnpm --filter @memora/api test -- src/prompt/
+# → trimmer drops lowest-score passages / oldest turns
+# → builder keeps disclosure + boundaries under overflow
+# → short user message (<12 tokens) appends previous turn for retrieval query
+```
+
+**Edge:** relationship note is truncated before hard boundary lines are dropped. Empty retrieval still emits disclosure.
+
+**Fail if:** overflowing sources remove `DISCLOSURE_SENTENCE` from the system prompt, or `chunk-0` (lowest score) is kept while higher scores are dropped.
 
 ---
 
