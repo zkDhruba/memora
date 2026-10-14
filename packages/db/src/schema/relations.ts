@@ -6,6 +6,7 @@ import { mfaFactors, recoveryCodes } from "./mfa";
 import { personaMemberships, personas } from "./personas";
 import { plans, subscriptions } from "./plans";
 import { sessions } from "./sessions";
+import { chunkEmbeddings } from "./chunk-embeddings";
 import { documentChunks } from "./chunks";
 import { documents } from "./documents";
 import { processingJobs } from "./processing-jobs";
@@ -238,28 +239,42 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
   chunks: many(documentChunks),
 }));
 
-export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
-  persona: one(personas, {
-    fields: [documentChunks.personaId],
-    references: [personas.id],
+export const documentChunksRelations = relations(
+  documentChunks,
+  ({ one, many }) => ({
+    persona: one(personas, {
+      fields: [documentChunks.personaId],
+      references: [personas.id],
+    }),
+    file: one(sourceFiles, {
+      fields: [documentChunks.fileId],
+      references: [sourceFiles.id],
+    }),
+    fileVersion: one(sourceFileVersions, {
+      fields: [documentChunks.fileVersionId],
+      references: [sourceFileVersions.id],
+    }),
+    document: one(documents, {
+      fields: [documentChunks.documentId],
+      references: [documents.id],
+    }),
+    thread: one(sourceThreads, {
+      fields: [documentChunks.threadId],
+      references: [sourceThreads.id],
+    }),
+    embeddings: many(chunkEmbeddings),
   }),
-  file: one(sourceFiles, {
-    fields: [documentChunks.fileId],
-    references: [sourceFiles.id],
+);
+
+export const chunkEmbeddingsRelations = relations(
+  chunkEmbeddings,
+  ({ one }) => ({
+    chunk: one(documentChunks, {
+      fields: [chunkEmbeddings.chunkId],
+      references: [documentChunks.id],
+    }),
   }),
-  fileVersion: one(sourceFileVersions, {
-    fields: [documentChunks.fileVersionId],
-    references: [sourceFileVersions.id],
-  }),
-  document: one(documents, {
-    fields: [documentChunks.documentId],
-    references: [documents.id],
-  }),
-  thread: one(sourceThreads, {
-    fields: [documentChunks.threadId],
-    references: [sourceThreads.id],
-  }),
-}));
+);
 
 export const processingJobsRelations = relations(processingJobs, ({ one }) => ({
   persona: one(personas, {

@@ -61,4 +61,15 @@ export const env = {
       process.env.OPENROUTER_HTTP_REFERER ?? env.webOrigin,
     appTitle: () => process.env.OPENROUTER_APP_TITLE ?? "Memora",
   },
+
+  /** Embeddings (docs: text-embedding-3-small @ 1536). Via OpenRouter in MVP testing. */
+  embeddings: {
+    provider: () => process.env.EMBEDDING_PROVIDER ?? "openrouter",
+    model: () =>
+      process.env.EMBEDDING_MODEL ?? "openai/text-embedding-3-small",
+    dims: () => Number(process.env.EMBEDDING_DIMS ?? 1536),
+    baseUrl: () =>
+      process.env.EMBEDDING_BASE_URL ??
+      "https://openrouter.ai/api/v1/embeddings",
+  },
 };

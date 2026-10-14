@@ -4,6 +4,7 @@ import { DbModule } from "./db/db.module";
 import { FilesModule } from "./files/files.module";
 import { HealthController } from "./health.controller";
 import { JobsModule } from "./jobs/jobs.module";
+import { EmbeddingsModule } from "./embeddings/embeddings.module";
 import { LlmModule } from "./llm/llm.module";
 import { MailModule } from "./mail/mail.module";
 import { PersonasModule } from "./personas/personas.module";
@@ -21,6 +22,7 @@ import { StorageModule } from "./storage/storage.module";
     ScanningModule,
     JobsModule,
     LlmModule,
+    EmbeddingsModule,
     AuthModule,
     PlansModule,
     PersonasModule,

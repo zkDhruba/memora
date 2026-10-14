@@ -12,4 +12,5 @@ export * from "./processing-jobs";
 export * from "./documents";
 export * from "./chat-sources";
 export * from "./chunks";
+export * from "./chunk-embeddings";
 export * from "./relations";

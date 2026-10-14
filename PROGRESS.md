@@ -105,7 +105,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 1 — Providers
 
 - [x] **3.1** `LlmPort` + adapter; refuse without consent
-- [ ] **3.2** Embedding adapter + HNSW
+- [x] **3.2** Embedding adapter + HNSW
 
 ### Bite 2 — Extract and review
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.2 | chunk_embeddings + HNSW; EmbeddingPort via OpenRouter; cosine nearest + check-embeddings |
 | 2026-10-14 | 3.1 | LlmPort + OpenRouter adapter (testing); ProviderConsentService; refuse without send_to_provider |
 | 2026-10-14 | 2.11 | Additive second import: A chunks intact after B; sum counts; FILE_DUPLICATE; Phase 2 done |
 | 2026-10-14 | 2.10 | DELETE file/import purge (chunks/messages/docs/objects); POST reprocess; UI Delete; check-purge |
@@ -812,6 +813,26 @@ pnpm --filter @memora/api exec tsx scripts/check-llm.ts
 **Edge:** call with `provider: "openrouter"` but consent only for `anthropic` → `CONSENT_REQUIRED`. Missing `OPENROUTER_API_KEY` → `LLM_NOT_CONFIGURED`.
 
 **Fail if:** complete succeeds without `send_to_provider`; API key appears in git history / committed files.
+
+### 3.2 — Embedding adapter + HNSW
+
+```bash
+# .env: OPENROUTER_API_KEY + EMBEDDING_MODEL=openai/text-embedding-3-small
+pnpm db:migrate
+# → chunk_embeddings + HNSW (m=16, ef_construction=64)
+
+pnpm --filter @memora/api test
+# → fake-embedding.adapter.test.ts green
+
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+pnpm --filter @memora/api exec tsx scripts/check-embeddings.ts
+# → ok embedded N chunks
+# → ok cosine order — tea closer than bike — check-embeddings passed
+```
+
+**Edge:** no `send_to_provider` → embed refused (`CONSENT_REQUIRED`). Other-speaker chunks with `retrieval_allowed=false` are not embedded.
+
+**Fail if:** vectors missing after embed; nearest order ignores cosine (tea query returns bike first).
 
 ---
 
