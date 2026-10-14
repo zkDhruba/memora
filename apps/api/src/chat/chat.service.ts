@@ -10,7 +10,9 @@ import {
   personalityEvidence,
   personalityProfiles,
   personalityTraits,
+  sourceParticipants,
   usageRecords,
+  users,
   type MemoraDb,
 } from "@memora/db";
 import type {
@@ -33,6 +35,7 @@ import {
   expandRetrievalQuery,
   isSoftIdentityQuery,
 } from "../retrieval/soft-identity-query";
+import { buildRelationshipCard } from "./interlocutor-context";
 import type { SseWriter } from "./sse";
 
 const HEARTBEAT_MS = 15_000;
@@ -220,6 +223,18 @@ export class ChatService {
       const previousUser = [...recent]
         .reverse()
         .find((t) => t.role === "user");
+
+      const audience = (membership.audience ?? "private") as MembershipAudience;
+      const interlocutor = await this.loadInterlocutorContext(
+        userId,
+        personaId,
+        audience,
+      );
+      const relationship =
+        audience === "private"
+          ? buildRelationshipCard(interlocutor)
+          : ("neutral" as const);
+
       const baseRetrievalQuery = this.prompts.retrievalQuery(
         text,
         previousUser?.content,
@@ -228,10 +243,12 @@ export class ChatService {
         baseRetrievalQuery,
         persona.biography,
         persona.displayName,
+        [
+          interlocutor.userDisplayName,
+          ...interlocutor.importCounterparties,
+        ].filter((n): n is string => Boolean(n)),
       );
       const softIdentity = isSoftIdentityQuery(text);
-
-      const audience = (membership.audience ?? "private") as MembershipAudience;
       let retrieved: Awaited<ReturnType<HybridRetrievalService["retrieve"]>> = {
         chunks: [],
         memories: [],
@@ -302,7 +319,7 @@ export class ChatService {
         styleCard,
         styleExcerpts,
         styleEvidenceLimited,
-        relationship: "neutral",
+        relationship,
         boundaries: [],
         hasImportedRecords,
         chunks: retrieved.chunks.map((c) => ({
@@ -496,6 +513,41 @@ export class ChatService {
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
+  }
+
+  /**
+   * Private/inner chat: owner display name + WhatsApp "other" labels.
+   * Does not load other-speaker message bodies (still retrieval-blocked).
+   */
+  private async loadInterlocutorContext(
+    userId: string,
+    personaId: string,
+    audience: MembershipAudience,
+  ) {
+    if (audience !== "private") {
+      return { userDisplayName: null, importCounterparties: [] as string[] };
+    }
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    const others = await this.db.query.sourceParticipants.findMany({
+      where: and(
+        eq(sourceParticipants.personaId, personaId),
+        eq(sourceParticipants.role, "other"),
+      ),
+      limit: 24,
+    });
+    const labels = [
+      ...new Set(
+        others
+          .map((p) => p.rawLabel?.trim())
+          .filter((n): n is string => Boolean(n)),
+      ),
+    ].slice(0, 6);
+    return {
+      userDisplayName: user?.displayName?.trim() || null,
+      importCounterparties: labels,
+    };
   }
 
   private async requireChatReady(userId: string, personaId: string) {

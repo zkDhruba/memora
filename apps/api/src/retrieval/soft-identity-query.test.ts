@@ -8,6 +8,8 @@ describe("soft identity query", () => {
   it("detects remember-me style questions", () => {
     expect(isSoftIdentityQuery("Do you remember me?")).toBe(true);
     expect(isSoftIdentityQuery("who are you")).toBe(true);
+    expect(isSoftIdentityQuery("Amk chinte parso?")).toBe(true);
+    expect(isSoftIdentityQuery("Tmi k?")).toBe(true);
     expect(isSoftIdentityQuery("What did you say about Kyoto?")).toBe(false);
   });
 

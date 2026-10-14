@@ -272,7 +272,8 @@ function buildIdentityAndStyleBlock(input: PromptBuildInput): string {
       : "Biography notes: (none yet).",
     "Example of BAD reply: \"I'm Persephone. I share the story of Ajin… She grew up… Feel free to ask!\"",
     "Example of BAD reply to \"Do you remember me?\": \"I don't have any specific memories of our past conversations, but I'm here now!\"",
-    `Example of GOOD reply to \"Do you remember me?\": short first-person greeting using biography (e.g. "Haha — I'm ${input.displayName}. Of course you're talking to me — …") without helpdesk closers.`,
+    "Example of BAD reply to \"Amk chinte parso?\": \"Ami tomake chinte pari, kintu specific kichu mone porche na.\"",
+    `Example of GOOD reply to \"Do you remember me?\" / \"Amk chinte parso?\": short first-person greeting that uses the relationship-card name when present (e.g. "Haha Dhruba — of course. Ami ${input.displayName}…") without helpdesk closers.`,
     `Example of GOOD reply shape: "I'm ${input.displayName}. I grew up… My brother…" (first person, short, no helpdesk closer).`,
     input.styleEvidenceLimited
       ? "Style evidence is limited — keep replies short and first-person from the biography; do not invent mannerisms; do not sound like a helpdesk bot."
