@@ -28,7 +28,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 | 0 | Planning / docs | done | Architecture docs complete |
 | 1 | Platform foundation | done | Auth, plans, personas, audit, shell, CI |
 | 2 | Ingestion | done | Upload, parse, chunk, additive feeds |
-| 3 | AI persona (MVP) | todo | Review, RAG, streaming chat, quotas |
+| 3 | AI persona (MVP) | in_progress | Review, RAG, streaming chat, quotas |
 | 4 | Personality / relationships | todo | After MVP |
 | 5 | Images | todo | No voice |
 | 6 | Production hardening | todo | Admin, backups, ops |
@@ -100,11 +100,11 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ## Phase 3 — AI persona (MVP)
 
-**Phase status:** `todo`
+**Phase status:** `in_progress`
 
 ### Bite 1 — Providers
 
-- [ ] **3.1** `LlmPort` + adapter; refuse without consent
+- [x] **3.1** `LlmPort` + adapter; refuse without consent
 - [ ] **3.2** Embedding adapter + HNSW
 
 ### Bite 2 — Extract and review
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.1 | LlmPort + OpenRouter adapter (testing); ProviderConsentService; refuse without send_to_provider |
 | 2026-10-14 | 2.11 | Additive second import: A chunks intact after B; sum counts; FILE_DUPLICATE; Phase 2 done |
 | 2026-10-14 | 2.10 | DELETE file/import purge (chunks/messages/docs/objects); POST reprocess; UI Delete; check-purge |
 | 2026-10-14 | 1.7+ | POST /personas/:id/restore + dashboard Restore; soft-delete still counts until purge (Free slot trap fixed) |
@@ -788,6 +789,29 @@ pnpm --filter @memora/api exec tsx scripts/check-additive-import.ts
 **Edge:** confirmed biographical *memories* are Phase 3; this check uses chunks as the Phase 2 stand-in for “A’s knowledge stays.”
 
 **Fail if:** second import wipes A’s chunks; total ≠ A+B; duplicate upload succeeds as a second corpus.
+
+### 3.1 — LlmPort + OpenRouter (consent gate)
+
+```bash
+# Put key only in gitignored .env (never commit):
+# OPENROUTER_API_KEY=sk-or-...
+# OPENROUTER_MODEL=openai/gpt-4o-mini
+
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+
+pnpm --filter @memora/api test
+# → provider-consent.service.test.ts green
+
+pnpm --filter @memora/api exec tsx scripts/check-llm.ts
+# → ok refuse without send_to_provider → CONSENT_REQUIRED
+# → ok granted send_to_provider for openrouter
+# → ok llm complete with consent — check-llm passed
+```
+
+**Edge:** call with `provider: "openrouter"` but consent only for `anthropic` → `CONSENT_REQUIRED`. Missing `OPENROUTER_API_KEY` → `LLM_NOT_CONFIGURED`.
+
+**Fail if:** complete succeeds without `send_to_provider`; API key appears in git history / committed files.
 
 ---
 

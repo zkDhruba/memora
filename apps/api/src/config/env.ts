@@ -45,4 +45,20 @@ export const env = {
       (process.env.CLAMAV_SKIP ?? "").toLowerCase() === "true" ||
       (process.env.CLAMAV_SKIP ?? "") === "1",
   },
+
+  /**
+   * OpenRouter (OpenAI-compatible) — local/testing LLM until Anthropic/own model.
+   * Never commit real keys; set OPENROUTER_API_KEY in .env only.
+   */
+  openrouter: {
+    apiKey: () => process.env.OPENROUTER_API_KEY ?? "",
+    baseUrl: () =>
+      process.env.OPENROUTER_BASE_URL ??
+      "https://openrouter.ai/api/v1/chat/completions",
+    defaultModel: () =>
+      process.env.OPENROUTER_MODEL ?? "openai/gpt-4o-mini",
+    httpReferer: () =>
+      process.env.OPENROUTER_HTTP_REFERER ?? env.webOrigin,
+    appTitle: () => process.env.OPENROUTER_APP_TITLE ?? "Memora",
+  },
 };
