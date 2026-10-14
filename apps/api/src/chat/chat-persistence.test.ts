@@ -46,7 +46,46 @@ describe("chat persistence on disconnect (3.8)", () => {
         personalityTraits: {
           findMany: async () => [],
         },
+        personalityEvidence: {
+          findMany: async () => [],
+        },
+        users: {
+          findFirst: async () => ({
+            id: "user",
+            displayName: "Tester",
+          }),
+        },
+        sourceParticipants: {
+          findMany: async () => [],
+        },
+        messageCitations: {
+          findMany: async () => [],
+        },
+        documentChunks: {
+          findMany: async () => [],
+        },
+        memories: {
+          findMany: async () => [],
+        },
       },
+      select: vi.fn(() => {
+        const rows: unknown[] = [];
+        const chain: {
+          from: () => typeof chain;
+          where: () => typeof chain;
+          orderBy: () => typeof chain;
+          limit: () => Promise<unknown[]>;
+          then: Promise<unknown[]>["then"];
+        } = {
+          from: () => chain,
+          where: () => chain,
+          orderBy: () => chain,
+          limit: async () => rows,
+          then: (onFulfilled, onRejected) =>
+            Promise.resolve(rows).then(onFulfilled, onRejected),
+        };
+        return chain;
+      }),
       delete: vi.fn(() => ({ where: async () => undefined })),
     };
 

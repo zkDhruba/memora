@@ -370,8 +370,31 @@ function ChatHubInner() {
                         <p className="text-xs text-[var(--muted)]">
                           {m.role}
                           {m.status !== "complete" ? ` · ${m.status}` : ""}
+                          {m.quality === "abstained" ? " · not in records" : ""}
                         </p>
                         <p className="mt-1 whitespace-pre-wrap">{m.content}</p>
+                        {m.role === "assistant" &&
+                        m.citations &&
+                        m.citations.length > 0 ? (
+                          <ul className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+                            <li className="text-[10px] font-medium tracking-wide text-[var(--muted)] uppercase">
+                              From your records
+                            </li>
+                            {m.citations.map((c) => (
+                              <li
+                                key={`${m.id}-${c.marker}`}
+                                className="text-xs text-[var(--muted)]"
+                              >
+                                <span className="font-mono text-[10px]">
+                                  {c.marker}
+                                </span>
+                                {c.quote
+                                  ? ` — “${c.quote}${c.quote.length >= 180 ? "…" : ""}”`
+                                  : null}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                       </div>
                     ))}
                     {streamingText ? (

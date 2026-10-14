@@ -121,7 +121,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 4 — Chat and quotas
 
 - [x] **3.8** SSE streaming chat + persistence
-- [ ] **3.9** Citations + abstention rewrite
+- [x] **3.9** Citations + abstention rewrite
 - [ ] **3.10** Conversational memory writer
 - [ ] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
 - [ ] **3.11** Daily send quota (Free 26th → `PLAN_LIMIT_CHAT_DAY`)
@@ -189,6 +189,8 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.9 | Human-like abstention copy (Banglish chat lines); keep model soft-deny; fix tmra/bhai language detect |
+| 2026-10-14 | 3.9 | Citations + abstention rewrite; strip unknown markers; UI “From your records”; quality=abstained |
 | 2026-10-14 | 3.8+ | Sticky multi-turn retrieval + overlap re-rank; force model to use sources (stop vague Sidr dodge) |
 | 2026-10-14 | 3.8+ | Verified sticky “father?” ranks Sidor/nirjatito #1; added mid-prompt must-use-fact cue |
 | 2026-10-14 | 3.8+ | Query expand Sidr↔Sidor + keyword retrieval channel; fix miss on WhatsApp "Sidor er rat e" |
@@ -953,6 +955,24 @@ pnpm --filter @memora/api exec tsx scripts/check-chat-sse.ts
 **Edge:** client disconnect aborts provider stream but still writes a terminal assistant row (`aborted`/`complete`/`error`), never left as `streaming`.
 
 **Fail if:** assistant row remains `status=streaming` after the request ends.
+
+### 3.9 — Citations + abstention rewrite
+
+```bash
+pnpm --filter @memora/api exec vitest run src/chat/citation-abstention.test.ts
+# → must-abstain: factual Q + zero markers → abstention copy
+# → grounded reply keeps cite, strips [[c1]] from stored text
+# → unknown [[c99]] stripped; soft identity does not abstain
+
+# API on :4000 — New chat, ask a fact the model invents without [[cN]]:
+# → assistant quality=abstained; content is abstention copy; no citation rows
+# Ask a grounded question that the model cites [[c1]]:
+# → SSE citation events + message_citations rows; UI “From your records” quotes
+```
+
+**Edge:** soft identity (“Who are you?”) never forces abstention; small talk without markers is fine.
+
+**Fail if:** factual answer with zero valid markers is persisted as a freeform claim, or unknown markers remain in stored content.
 
 ---
 

@@ -20,7 +20,7 @@ import type {
   MessageFeedbackBody,
   SendChatMessageBody,
 } from "@memora/shared";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
@@ -38,6 +38,10 @@ import {
   isSoftIdentityQuery,
 } from "../retrieval/soft-identity-query";
 import { expandQueryForRetrieval } from "../retrieval/query-expand";
+import {
+  applyCitationAbstention,
+  isFactualBiographicalQuery,
+} from "./citation-abstention";
 import { buildRelationshipCard } from "./interlocutor-context";
 import {
   collectVoiceSamples,
@@ -105,6 +109,44 @@ export class ChatService {
       where: eq(conversationMessages.sessionId, sessionId),
       orderBy: [asc(conversationMessages.createdAt)],
     });
+    const messageIds = messages.map((m) => m.id);
+    const citationRows =
+      messageIds.length === 0
+        ? []
+        : await this.db.query.messageCitations.findMany({
+            where: inArray(messageCitations.messageId, messageIds),
+          });
+    const citesByMessage = new Map<string, typeof citationRows>();
+    for (const c of citationRows) {
+      const list = citesByMessage.get(c.messageId) ?? [];
+      list.push(c);
+      citesByMessage.set(c.messageId, list);
+    }
+    const chunkIds = [
+      ...new Set(
+        citationRows.map((c) => c.chunkId).filter((id): id is string => !!id),
+      ),
+    ];
+    const memoryIds = [
+      ...new Set(
+        citationRows.map((c) => c.memoryId).filter((id): id is string => !!id),
+      ),
+    ];
+    const chunks =
+      chunkIds.length === 0
+        ? []
+        : await this.db.query.documentChunks.findMany({
+            where: inArray(documentChunks.id, chunkIds),
+          });
+    const mems =
+      memoryIds.length === 0
+        ? []
+        : await this.db.query.memories.findMany({
+            where: inArray(memories.id, memoryIds),
+          });
+    const chunkById = new Map(chunks.map((c) => [c.id, c] as const));
+    const memById = new Map(mems.map((m) => [m.id, m] as const));
+
     return {
       id: session.id,
       title: session.title,
@@ -117,6 +159,18 @@ export class ChatService {
         model: m.model,
         quality: m.quality,
         createdAt: m.createdAt,
+        citations: (citesByMessage.get(m.id) ?? []).map((c) => {
+          const chunk = c.chunkId ? chunkById.get(c.chunkId) : undefined;
+          const mem = c.memoryId ? memById.get(c.memoryId) : undefined;
+          const quote = (chunk?.content ?? mem?.text ?? "").slice(0, 180);
+          return {
+            marker: c.marker,
+            kind: c.chunkId ? ("chunk" as const) : ("memory" as const),
+            chunkId: c.chunkId,
+            memoryId: c.memoryId,
+            quote: quote || null,
+          };
+        }),
       })),
     };
   }
@@ -402,12 +456,15 @@ export class ChatService {
         provider = "openrouter";
       }
 
-      // Warmer when we have real voice samples (docs/06 small-talk band).
-      const temperature = styleEvidenceLimited
-        ? 0.5
-        : voiceSamples.length > 0
-          ? 0.75
-          : 0.65;
+      // Low temp for factual/bio; warmer for small talk (docs/06).
+      const factualQuery = isFactualBiographicalQuery(text);
+      const temperature = factualQuery
+        ? 0.3
+        : styleEvidenceLimited
+          ? 0.5
+          : voiceSamples.length > 0
+            ? 0.75
+            : 0.65;
 
       for await (const chunk of this.llm.stream({
         personaId,
@@ -432,42 +489,57 @@ export class ChatService {
         }
       }
 
-      // Emit citations for markers present in the reply (full abstention in 3.9).
-      const usedMarkers = new Set(
-        [...assembled.matchAll(/\[\[([cm]\d+)\]\]/g)].map((m) => m[1]!),
+      const chunkQuoteById = new Map(
+        retrieved.chunks.map((c) => [c.chunkId, c.content] as const),
       );
-      for (const [marker, chunkId] of Object.entries(built.citationMap)) {
-        if (usedMarkers.size > 0 && !usedMarkers.has(marker)) continue;
-        if (usedMarkers.size === 0) continue;
-        sse.send("citation", { marker, chunkId, kind: "chunk" });
-        await this.db.insert(messageCitations).values({
-          id: newId(),
-          messageId: assistantMessageId,
-          chunkId,
-          memoryId: null,
-          marker,
-        });
-      }
-      for (const [marker, memoryId] of Object.entries(built.memoryMap)) {
-        if (usedMarkers.size > 0 && !usedMarkers.has(marker)) continue;
-        if (usedMarkers.size === 0) continue;
-        sse.send("citation", { marker, memoryId, kind: "memory" });
-        await this.db.insert(messageCitations).values({
-          id: newId(),
-          messageId: assistantMessageId,
-          chunkId: null,
-          memoryId,
-          marker,
-        });
+      const memoryQuoteById = new Map(
+        retrieved.memories.map((m) => [m.memoryId, m.text] as const),
+      );
+
+      // 3.9 — strip unknown markers; abstain when factual + no valid cites.
+      const post = applyCitationAbstention({
+        userMessage: text,
+        reply: assembled,
+        citationMap: built.citationMap,
+        memoryMap: built.memoryMap,
+      });
+      const finalContent = aborted ? assembled : post.content;
+
+      if (!aborted) {
+        for (const cite of post.citations) {
+          const quote =
+            cite.kind === "chunk"
+              ? (chunkQuoteById.get(cite.chunkId!) ?? "").slice(0, 180)
+              : (memoryQuoteById.get(cite.memoryId!) ?? "").slice(0, 180);
+          sse.send("citation", {
+            marker: cite.marker,
+            kind: cite.kind,
+            chunkId: cite.chunkId ?? null,
+            memoryId: cite.memoryId ?? null,
+            quote: quote || null,
+          });
+          await this.db.insert(messageCitations).values({
+            id: newId(),
+            messageId: assistantMessageId,
+            chunkId: cite.chunkId ?? null,
+            memoryId: cite.memoryId ?? null,
+            marker: cite.marker,
+          });
+        }
       }
 
       const status = aborted ? "aborted" : "complete";
+      const quality = aborted
+        ? "degraded"
+        : post.abstained
+          ? "abstained"
+          : "ok";
       await this.finalizeAssistant({
         assistantMessageId,
-        content: assembled,
+        content: finalContent,
         status,
         model,
-        quality: aborted ? "degraded" : "ok",
+        quality,
         errorCode: null,
       });
 
@@ -494,6 +566,8 @@ export class ChatService {
         userMessageId,
         status,
         aborted,
+        abstained: !aborted && post.abstained,
+        content: finalContent,
       });
     } catch (err) {
       aborted = signal.aborted || aborted;

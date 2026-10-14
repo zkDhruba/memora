@@ -219,6 +219,14 @@ export type ConversationListItem = {
   updatedAt: string;
 };
 
+export type MessageCitation = {
+  marker: string;
+  kind: "chunk" | "memory";
+  chunkId: string | null;
+  memoryId: string | null;
+  quote: string | null;
+};
+
 export type ConversationMessage = {
   id: string;
   role: "user" | "assistant" | "system";
@@ -227,6 +235,7 @@ export type ConversationMessage = {
   model: string | null;
   quality: string | null;
   createdAt: string;
+  citations?: MessageCitation[];
 };
 
 export type ConversationDetail = {
