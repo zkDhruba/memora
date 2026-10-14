@@ -115,7 +115,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 ### Bite 3 — Retrieval
 
-- [ ] **3.6** Hybrid retrieval + audience filter; sentinel isolation test
+- [x] **3.6** Hybrid retrieval + audience filter; sentinel isolation test
 - [ ] **3.7** Prompt builder + token trimmer
 
 ### Bite 4 — Chat and quotas
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.6 | HybridRetrievalService: vector+FTS RRF, audience SQL filter, PersonaScope; sentinel isolation test |
 | 2026-10-14 | 3.5 | review-queue + trait/memory decisions; confirm → retrievalAllowed; correct supersedes memory; /review UI |
 | 2026-10-14 | 3.4 | memories + domain check; bio extract + quote gate; searchBiographical ≠ conversational |
 | 2026-10-14 | 3.3 | Style stats + class B/C trait drafts; quote gate drops fakes; personality_* tables |
@@ -893,6 +894,22 @@ pnpm --filter @memora/api exec tsx scripts/check-review-inbox.ts
 **Edge:** decision on non-pending trait/memory → `409`. Correct memory creates a superseding row; old becomes `superseded` (not retrieved).
 
 **Fail if:** confirm leaves status `pending_review`; confirmed bio missing from confirmed set; rejected still appears in review-queue.
+
+### 3.6 — Hybrid retrieval + audience filter; sentinel isolation
+
+```bash
+pnpm --filter @memora/api test -- src/retrieval/
+# → rrf + audience-filter unit tests
+# → hybrid-retrieval.sentinel: A/B sentinels never cross; friend ≠ private
+
+pnpm --filter @memora/api exec tsx scripts/check-retrieval-sentinel.ts
+# → ok persona A retrieve contains A, not B
+# → ok cross-persona query does not leak B
+```
+
+**Edge:** friend membership cannot retrieve `audience=private` chunks/memories. Querying persona A with B’s sentinel returns no B content.
+
+**Fail if:** any hit for persona A contains persona B’s sentinel string.
 
 ---
 

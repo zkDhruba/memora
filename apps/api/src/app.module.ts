@@ -12,6 +12,7 @@ import { PersonalityModule } from "./personality/personality.module";
 import { PersonasModule } from "./personas/personas.module";
 import { PlansModule } from "./plans/plans.module";
 import { RedisModule } from "./redis/redis.module";
+import { RetrievalModule } from "./retrieval/retrieval.module";
 import { ReviewModule } from "./review/review.module";
 import { ScanningModule } from "./scanning/scanning.module";
 import { StorageModule } from "./storage/storage.module";
@@ -31,6 +32,7 @@ import { StorageModule } from "./storage/storage.module";
     PersonasModule,
     PersonalityModule,
     MemoryModule,
+    RetrievalModule,
     ReviewModule,
     FilesModule,
   ],

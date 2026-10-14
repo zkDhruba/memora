@@ -15,7 +15,7 @@ export class FakeEmbeddingAdapter implements EmbeddingPort {
       env.embeddings.provider(),
     );
     const dims = env.embeddings.dims();
-    const vectors = request.texts.map((t) => hashToUnitVector(t, dims));
+    const vectors = request.texts.map((t) => hashTextToUnitVector(t, dims));
     return {
       model: "fake-embedding",
       dims,
@@ -24,7 +24,8 @@ export class FakeEmbeddingAdapter implements EmbeddingPort {
   }
 }
 
-function hashToUnitVector(text: string, dims: number): number[] {
+/** Deterministic unit vector — shared by adapter and sentinel fixtures. */
+export function hashTextToUnitVector(text: string, dims: number): number[] {
   const out = new Array<number>(dims).fill(0);
   const digest = createHash("sha256").update(text).digest();
   for (let i = 0; i < dims; i++) {
