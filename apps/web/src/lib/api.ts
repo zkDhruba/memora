@@ -170,3 +170,44 @@ export type ImportProgress = {
   percent: number;
   files: ImportFileProgress[];
 };
+
+export type ReviewEvidence = {
+  id: string;
+  quote: string;
+  messageId: string | null;
+  chunkId: string | null;
+};
+
+export type ReviewTraitItem = {
+  id: string;
+  kind: "trait";
+  facet: string;
+  value: string;
+  knowledgeClass: string;
+  confidence: number;
+  audience: string;
+  status: string;
+  evidence: ReviewEvidence[];
+  createdAt: string;
+};
+
+export type ReviewMemoryItem = {
+  id: string;
+  kind: "memory";
+  domain: string;
+  memoryType: string;
+  text: string;
+  knowledgeClass: string;
+  confidence: number;
+  audience: string;
+  sensitivity: string;
+  status: string;
+  evidence: ReviewEvidence[];
+  createdAt: string;
+};
+
+export type ReviewQueue = {
+  traits: ReviewTraitItem[];
+  memories: ReviewMemoryItem[];
+  pendingCount: number;
+};

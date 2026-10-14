@@ -48,3 +48,10 @@ export {
   type CompleteFileBody,
   type SubjectMappingBody,
 } from "./uploads";
+export {
+  reviewDecisionActionSchema,
+  reviewDecisionBodySchema,
+  memoryCorrectBodySchema,
+  type ReviewDecisionBody,
+  type MemoryCorrectBody,
+} from "./review";

@@ -191,6 +191,16 @@ export default function PersonaDetailPage() {
           {persona.scenario} · {persona.status} · {persona.role}
           {persona.chatEligible ? " · chat eligible" : " · not chat eligible yet"}
         </p>
+        {canMap ? (
+          <p className="mt-2">
+            <Link
+              href={`/personas/${id}/review`}
+              className="text-sm underline underline-offset-2"
+            >
+              Review inbox
+            </Link>
+          </p>
+        ) : null}
       </div>
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">

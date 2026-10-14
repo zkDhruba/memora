@@ -111,7 +111,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 - [x] **3.3** Style stats + trait drafts with quote check
 - [x] **3.4** Memory extractor; biographical ≠ conversational
-- [ ] **3.5** Review inbox (confirm / reject / correct)
+- [x] **3.5** Review inbox (confirm / reject / correct)
 
 ### Bite 3 — Retrieval
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.5 | review-queue + trait/memory decisions; confirm → retrievalAllowed; correct supersedes memory; /review UI |
 | 2026-10-14 | 3.4 | memories + domain check; bio extract + quote gate; searchBiographical ≠ conversational |
 | 2026-10-14 | 3.3 | Style stats + class B/C trait drafts; quote gate drops fakes; personality_* tables |
 | 2026-10-14 | 3.2 | chunk_embeddings + HNSW; EmbeddingPort via OpenRouter; cosine nearest + check-embeddings |
@@ -872,6 +873,26 @@ pnpm --filter @memora/api exec tsx scripts/check-memory-extract.ts
 **Edge:** extracted bio without quote → `MEMORY_EVIDENCE_REQUIRED`. Conversational cannot attach chunk evidence.
 
 **Fail if:** `searchBiographical` returns session memories; bio insert accepts `conversationSessionId`.
+
+### 3.5 — Review inbox (confirm / reject / correct)
+
+```bash
+pnpm --filter @memora/api test
+# → review-decision.schema.test.ts (correct requires value)
+
+# API must be running
+pnpm --filter @memora/api exec tsx scripts/check-review-inbox.ts
+# → ok review-queue lists pending
+# → ok confirm trait/memory → retrievalAllowed
+# → ok correct memory → new confirmed + old superseded
+# → ok re-confirm → 409
+
+# UI: /personas/:id/review (Manager+) — Confirm / Reject / Correct
+```
+
+**Edge:** decision on non-pending trait/memory → `409`. Correct memory creates a superseding row; old becomes `superseded` (not retrieved).
+
+**Fail if:** confirm leaves status `pending_review`; confirmed bio missing from confirmed set; rejected still appears in review-queue.
 
 ---
 
