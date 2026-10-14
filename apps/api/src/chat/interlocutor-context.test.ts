@@ -7,9 +7,9 @@ describe("interlocutor context", () => {
       userDisplayName: "Dhruba",
       importCounterparties: ["Dhruba"],
     });
-    expect(card.label).toContain("Dhruba");
-    expect(card.note).toMatch(/chinte parso/i);
-    expect(card.note).toMatch(/Do not say you recognize them but remember nothing/i);
+    expect(card.label).toBe("Dhruba");
+    expect(card.note).toMatch(/Their name is Dhruba/i);
+    expect(card.note).toMatch(/Never explain this card/i);
   });
 
   it("falls back when no names are known", () => {
@@ -17,7 +17,7 @@ describe("interlocutor context", () => {
       userDisplayName: null,
       importCounterparties: [],
     });
-    expect(card.label).toBe("private chat");
-    expect(card.note).toMatch(/persona owner/i);
+    expect(card.label).toBe("private owner chat");
+    expect(card.note).toMatch(/owner/i);
   });
 });

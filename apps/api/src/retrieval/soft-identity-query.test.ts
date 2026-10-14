@@ -13,14 +13,17 @@ describe("soft identity query", () => {
     expect(isSoftIdentityQuery("What did you say about Kyoto?")).toBe(false);
   });
 
-  it("expands soft queries with biography", () => {
+  it("expands soft queries with names, not biography", () => {
     const q = expandRetrievalQuery(
       "Do you remember me?",
       "Grew up in Dhaka. Dry humor.",
       "Ajin",
+      ["Dhruba"],
     );
     expect(q).toContain("Do you remember me?");
     expect(q).toContain("Ajin");
-    expect(q).toContain("Dhaka");
+    expect(q).toContain("Dhruba");
+    expect(q).not.toContain("Dhaka");
   });
 });
+

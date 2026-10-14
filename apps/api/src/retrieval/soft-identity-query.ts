@@ -15,27 +15,24 @@ export function isSoftIdentityQuery(query: string): boolean {
   return SOFT_IDENTITY_EN.test(q) || SOFT_IDENTITY_BN.test(q);
 }
 
-/** Expand soft queries with biography + interlocutor names so retrieval has anchors. */
+/**
+ * Expand soft queries with persona/interlocutor names only.
+ * Do not inject biography — that steers vector search away from chat imports.
+ */
 export function expandRetrievalQuery(
   query: string,
-  biography?: string | null,
+  _biography?: string | null,
   displayName?: string | null,
   interlocutorNames?: string[] | null,
 ): string {
   const base = query.trim();
   if (!isSoftIdentityQuery(base)) return base;
 
-  const bioBits = (biography ?? "")
-    .split(/[\n.;]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= 8)
-    .slice(0, 4)
-    .join(" ");
   const name = displayName?.trim() ?? "";
   const others = (interlocutorNames ?? [])
     .map((n) => n.trim())
     .filter(Boolean)
     .slice(0, 4)
     .join(" ");
-  return [base, name, others, bioBits].filter(Boolean).join("\n").slice(0, 1200);
+  return [base, name, others].filter(Boolean).join("\n").slice(0, 800);
 }

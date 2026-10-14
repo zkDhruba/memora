@@ -22,23 +22,21 @@ export function buildRelationshipCard(ctx: InterlocutorContext): {
   ]);
   if (names.length === 0) {
     return {
-      label: "private chat",
-      note: "You are in a private chat with the persona owner. Speak as if you know them from your records; do not act like a stranger meeting for the first time.",
+      label: "private owner chat",
+      note: "Private chat with the owner. Speak as someone who already knows them. Never narrate or quote this card.",
     };
   }
 
   const primary = names[0]!;
-  const also =
-    names.length > 1 ? ` (also seen in imports as: ${names.slice(1).join(", ")})` : "";
+  const aliases = names.slice(1);
+  const aliasBit =
+    aliases.length > 0 ? ` Aliases from imports: ${aliases.join(", ")}.` : "";
   return {
-    label: `known contact — ${primary}`,
+    label: primary,
     note:
-      `The person messaging you is ${primary}${also}. ` +
-      `Imported chats list them as the other participant opposite you. ` +
-      `When they ask if you recognize or remember them (English or Bangla: "amk chinte parso", "mone ache"), ` +
-      `answer as someone who knows ${primary} — use their name warmly. ` +
-      `Do not say you recognize them but remember nothing specific. ` +
-      `Still do not invent private facts that are not in biography or retrieved sources.`,
+      `Their name is ${primary}.${aliasBit} ` +
+      `Use the name naturally in short messages when it fits. ` +
+      `Never explain this card, never say "known person"/"jantob", never recite meta about imports.`,
   };
 }
 

@@ -189,6 +189,12 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.8+ | Sticky multi-turn retrieval + overlap re-rank; force model to use sources (stop vague Sidr dodge) |
+| 2026-10-14 | 3.8+ | Verified sticky “father?” ranks Sidor/nirjatito #1; added mid-prompt must-use-fact cue |
+| 2026-10-14 | 3.8+ | Query expand Sidr↔Sidor + keyword retrieval channel; fix miss on WhatsApp "Sidor er rat e" |
+| 2026-10-14 | 3.8+ | Chat-first prompts: demote bio, enlarge retrievedSources budget, stop bio-expanding retrieval queries |
+| 2026-10-14 | 3.8+ | Biography passage selector for chat (bio not in chunk index; fixes Sidr/father miss past truncate) |
+| 2026-10-14 | 3.8+ | chat.v3 voice: real subject WhatsApp samples, demote lexicon traits, ban interview-bot closers, terse relationship card |
 | 2026-10-14 | 3.8+ | Private chat relationship card from WhatsApp "other" labels (e.g. Dhruba); Bangla soft-identity; ban hollow "chinte pari kintu mone nai" |
 | 2026-10-14 | 3.8+ | Fix chat amnesia: multi-batch embed (rebuild shows remaining), soft-identity retrieval fallback, prompt bans blank-memory lines |
 | 2026-10-14 | 3.8 | SSE chat + conversation_messages; abort finalizes row; Chat UI composer streams tokens |

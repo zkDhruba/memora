@@ -31,11 +31,19 @@ import { PersonaAccessService } from "../personas/persona-access.service";
 import { PromptBuilderService } from "../prompt/prompt-builder.service";
 import type { MembershipAudience } from "../retrieval/persona-scope";
 import { HybridRetrievalService } from "../retrieval/hybrid-retrieval.service";
+import { selectBiographyPassages } from "../prompt/biography-passages";
+import { buildStickyRetrievalQuery } from "../prompt/prompt-builder";
 import {
   expandRetrievalQuery,
   isSoftIdentityQuery,
 } from "../retrieval/soft-identity-query";
+import { expandQueryForRetrieval } from "../retrieval/query-expand";
 import { buildRelationshipCard } from "./interlocutor-context";
+import {
+  collectVoiceSamples,
+  inferChatLanguages,
+  isNoisyStyleTrait,
+} from "./voice-samples";
 import type { SseWriter } from "./sse";
 
 const HEARTBEAT_MS = 15_000;
@@ -223,6 +231,9 @@ export class ChatService {
       const previousUser = [...recent]
         .reverse()
         .find((t) => t.role === "user");
+      const recentUserTexts = recent
+        .filter((t) => t.role === "user")
+        .map((t) => t.content);
 
       const audience = (membership.audience ?? "private") as MembershipAudience;
       const interlocutor = await this.loadInterlocutorContext(
@@ -235,37 +246,27 @@ export class ChatService {
           ? buildRelationshipCard(interlocutor)
           : ("neutral" as const);
 
-      const baseRetrievalQuery = this.prompts.retrievalQuery(
-        text,
-        previousUser?.content,
-      );
-      const retrievalQuery = expandRetrievalQuery(
-        baseRetrievalQuery,
-        persona.biography,
-        persona.displayName,
+      const interlocutorNames = [
+        interlocutor.userDisplayName,
+        ...interlocutor.importCounterparties,
+      ].filter((n): n is string => Boolean(n));
+      // Sticky multi-turn query keeps Sidr/2007 anchors across "hae" / "father?" follow-ups.
+      const sticky = buildStickyRetrievalQuery(text, recentUserTexts, 3);
+      const retrievalQuery = expandQueryForRetrieval(
         [
-          interlocutor.userDisplayName,
-          ...interlocutor.importCounterparties,
-        ].filter((n): n is string => Boolean(n)),
+          expandRetrievalQuery(
+            sticky,
+            persona.biography,
+            persona.displayName,
+            interlocutorNames,
+          ),
+          ...interlocutorNames.slice(0, 2),
+        ]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 1400),
       );
       const softIdentity = isSoftIdentityQuery(text);
-      let retrieved: Awaited<ReturnType<HybridRetrievalService["retrieve"]>> = {
-        chunks: [],
-        memories: [],
-      };
-      try {
-        retrieved = await this.retrieval.retrieve(
-          { personaId, actorUserId: userId, audience },
-          retrievalQuery,
-          { softIdentityFallback: softIdentity },
-        );
-      } catch (err) {
-        // Thin personas / missing embed key: still chat with empty retrieval.
-        this.log.warn(
-          `retrieval skipped: ${(err as Error).message}`,
-        );
-      }
-
       const [chunkCountRow] = await this.db
         .select({ n: sql<number>`count(*)::int` })
         .from(documentChunks)
@@ -276,6 +277,37 @@ export class ChatService {
           ),
         );
       const hasImportedRecords = Number(chunkCountRow?.n ?? 0) > 0;
+      // Bio is secondary to chats; score against sticky multi-turn query.
+      const biographyPassages = selectBiographyPassages(
+        persona.biography,
+        sticky,
+        {
+          limit: hasImportedRecords ? 2 : 3,
+          maxChars: 1_200,
+          downweightNames: [persona.displayName],
+        },
+      );
+      let retrieved: Awaited<ReturnType<HybridRetrievalService["retrieve"]>> = {
+        chunks: [],
+        memories: [],
+      };
+      try {
+        retrieved = await this.retrieval.retrieve(
+          { personaId, actorUserId: userId, audience },
+          retrievalQuery,
+          {
+            chunkLimit: 10,
+            // Only seed recency when search is empty — not on every import persona
+            // (that was flooding Good-night noise over Sidr hits).
+            softIdentityFallback: softIdentity,
+          },
+        );
+      } catch (err) {
+        // Thin personas / missing embed key: still chat with empty retrieval.
+        this.log.warn(
+          `retrieval skipped: ${(err as Error).message}`,
+        );
+      }
 
       const profile = await this.db.query.personalityProfiles.findFirst({
         where: eq(personalityProfiles.personaId, personaId),
@@ -287,35 +319,56 @@ export class ChatService {
         ),
         limit: 24,
       });
+      const usefulTraits = confirmedTraits.filter(
+        (t) => !isNoisyStyleTrait(t.value),
+      );
 
       const styleCardFromTraits = Object.fromEntries(
-        confirmedTraits.map((t) => [t.facet, { note: t.value }]),
+        usefulTraits.map((t) => [t.facet, { note: t.value }]),
       );
       const compiled =
         (profile?.compiledCard as Record<string, unknown> | undefined) ?? {};
       const styleCard =
-        confirmedTraits.length > 0
+        usefulTraits.length > 0
           ? { ...compiled, ...styleCardFromTraits }
           : compiled;
-      const styleEvidenceLimited =
-        confirmedTraits.length === 0 && Object.keys(compiled).length === 0;
 
-      // Short evidence quotes from confirmed traits (cadence anchors).
-      const styleExcerpts: string[] = [];
-      for (const t of confirmedTraits.slice(0, 8)) {
+      // Prefer real subject WhatsApp lines over lexicon trait quotes.
+      const voiceChunks = await this.db
+        .select({ content: documentChunks.content })
+        .from(documentChunks)
+        .where(
+          and(
+            eq(documentChunks.personaId, personaId),
+            eq(documentChunks.retrievalAllowed, true),
+            eq(documentChunks.speakerRole, "subject"),
+          ),
+        )
+        .orderBy(desc(documentChunks.timeEnd), desc(documentChunks.createdAt))
+        .limit(80);
+      const voiceSamples = collectVoiceSamples(voiceChunks, 16);
+      const styleExcerpts: string[] = [...voiceSamples];
+      for (const t of usefulTraits.slice(0, 4)) {
         const ev = await this.db.query.personalityEvidence.findMany({
           where: eq(personalityEvidence.traitId, t.id),
           limit: 1,
         });
         const quote = ev[0]?.quote?.trim();
-        if (quote) styleExcerpts.push(quote.slice(0, 280));
+        if (quote && quote.length >= 8) styleExcerpts.push(quote.slice(0, 280));
       }
+      const styleEvidenceLimited =
+        styleExcerpts.length === 0 && Object.keys(styleCard).length === 0;
+      const languages = inferChatLanguages(
+        persona.languages ?? ["en"],
+        voiceSamples,
+      );
 
       const built = this.prompts.build({
         displayName: persona.displayName,
-        languages: persona.languages ?? ["en"],
+        languages,
         scenario: persona.scenario as "living" | "legacy",
         biography: persona.biography,
+        biographyPassages,
         styleCard,
         styleExcerpts,
         styleEvidenceLimited,
@@ -349,8 +402,12 @@ export class ChatService {
         provider = "openrouter";
       }
 
-      // Slightly warmer when we have style evidence (docs/06 small-talk band).
-      const temperature = styleEvidenceLimited ? 0.45 : 0.65;
+      // Warmer when we have real voice samples (docs/06 small-talk band).
+      const temperature = styleEvidenceLimited
+        ? 0.5
+        : voiceSamples.length > 0
+          ? 0.75
+          : 0.65;
 
       for await (const chunk of this.llm.stream({
         personaId,

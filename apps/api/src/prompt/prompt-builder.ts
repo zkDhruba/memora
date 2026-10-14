@@ -38,6 +38,8 @@ export type PromptBuildInput = {
   scenario: "living" | "legacy";
   /** Owner-written biography (identity grounding even before review). */
   biography?: string | null;
+  /** Query-selected biography paragraphs (hybrid retrieval does not search bio text). */
+  biographyPassages?: string[];
   /** Compiled personality card (JSON-serializable). */
   styleCard: Record<string, unknown> | string;
   /** Up to 8 short approved excerpts. */
@@ -190,9 +192,9 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
     identityStyle.text,
     rbClamped.text,
     sourcesBlockParts.length
-      ? `Retrieved sources:\n${sourcesBlockParts.join("\n")}`
+      ? `Retrieved sources (PRIMARY facts for this reply — paraphrase in first person; do not ignore them):\n${sourcesBlockParts.join("\n")}\n\nThis turn: if any source names an event, year, person, or what YOU said (e.g. Sidor/Sidr 2007, bap/nirjatito), your reply must include that concrete fact in first person. Vague filler without it is wrong.`
       : input.hasImportedRecords
-        ? "Retrieved sources: (none this turn). Imports exist for this persona — do not claim you have no records or no memory of anyone; use biography notes and say you do not have that specific detail loaded right now."
+        ? "Retrieved sources: (none this turn). Chat imports exist — stay in-character from voice samples; do not claim total amnesia; do not invent episodes. Say this specific detail is not loaded if needed."
         : "Retrieved sources: (none)",
     memoriesBlockParts.length
       ? `Biographical memories:\n${memoriesBlockParts.join("\n")}`
@@ -205,6 +207,14 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
   const messages: LlmMessage[] = [{ role: "system", content: systemPrompt }];
   for (const t of turnsTrim.kept) {
     messages.push({ role: t.role, content: t.content });
+  }
+  // Put a last-moment reminder beside the user turn so the model cannot bury sources.
+  if (sourcesBlockParts.length) {
+    messages.push({
+      role: "system",
+      content:
+        "Answer from Retrieved sources above. Prefer concrete facts over vague emotion. No interview closer.",
+    });
   }
   messages.push({ role: "user", content: userClamped.text });
 
@@ -256,6 +266,26 @@ export function buildRetrievalQuery(
   return current;
 }
 
+/**
+ * Keep last user turns in the retrieval query so follow-ups ("hae", "what about
+ * your father?") do not drop anchors like Sidr / 2007 from earlier in the thread.
+ */
+export function buildStickyRetrievalQuery(
+  userMessage: string,
+  recentUserMessages: string[],
+  maxTurns = 3,
+): string {
+  const current = userMessage.trim();
+  const prior = recentUserMessages
+    .map((m) => m.trim())
+    .filter(Boolean)
+    .slice(-maxTurns);
+  if (prior.length === 0) return current;
+  // Avoid duplicating the current message if it was already appended by caller.
+  const withoutDup = prior[prior.length - 1] === current ? prior.slice(0, -1) : prior;
+  return [...withoutDup, current].filter(Boolean).join("\n").slice(0, 1_400);
+}
+
 function buildIdentityAndStyleBlock(input: PromptBuildInput): string {
   const langs =
     input.languages.length > 0 ? input.languages.join(", ") : "unspecified";
@@ -263,30 +293,59 @@ function buildIdentityAndStyleBlock(input: PromptBuildInput): string {
     typeof input.styleCard === "string"
       ? input.styleCard
       : JSON.stringify(input.styleCard, null, 0);
-  const excerpts = (input.styleExcerpts ?? []).slice(0, 8);
-  const bio = input.biography?.trim();
+  const excerpts = (input.styleExcerpts ?? []).slice(0, 12);
+  // Chats first: voice samples dominate this block. Bio is optional/light.
+  const bioRaw = input.biography?.trim() ?? "";
+  const hasChats = (input.hasImportedRecords ?? false) || excerpts.length > 0;
+  const bioPrefix = !bioRaw
+    ? ""
+    : hasChats
+      ? bioRaw.length > 400
+        ? `${bioRaw.slice(0, 400).trim()}…`
+        : bioRaw
+      : bioRaw.length > 900
+        ? `${bioRaw.slice(0, 900).trim()}…`
+        : bioRaw;
+  const bioHits = hasChats
+    ? (input.biographyPassages ?? []).slice(0, 2)
+    : (input.biographyPassages ?? []).slice(0, 3);
   const lines = [
     `You are "${input.displayName}" in this chat (scenario ${input.scenario}; languages: ${langs}).`,
-    bio
-      ? `Your biography notes (facts about you — retell in first person; never as a narrator about someone else):\n${bio}`
-      : "Biography notes: (none yet).",
-    "Example of BAD reply: \"I'm Persephone. I share the story of Ajin… She grew up… Feel free to ask!\"",
-    "Example of BAD reply to \"Do you remember me?\": \"I don't have any specific memories of our past conversations, but I'm here now!\"",
-    "Example of BAD reply to \"Amk chinte parso?\": \"Ami tomake chinte pari, kintu specific kichu mone porche na.\"",
-    `Example of GOOD reply to \"Do you remember me?\" / \"Amk chinte parso?\": short first-person greeting that uses the relationship-card name when present (e.g. "Haha Dhruba — of course. Ami ${input.displayName}…") without helpdesk closers.`,
-    `Example of GOOD reply shape: "I'm ${input.displayName}. I grew up… My brother…" (first person, short, no helpdesk closer).`,
-    input.styleEvidenceLimited
-      ? "Style evidence is limited — keep replies short and first-person from the biography; do not invent mannerisms; do not sound like a helpdesk bot."
-      : "Style card:",
-    input.styleEvidenceLimited ? "" : card || "{}",
-  ].filter(Boolean);
+  ];
   if (excerpts.length) {
-    lines.push("Approved style excerpts (imitate cadence and phrasing):");
+    lines.push(
+      "Voice samples from your own chat records (PRIMARY for cadence — imitate length and code-mixing; do not copy verbatim unless it fits):",
+    );
     for (const e of excerpts) {
       lines.push(`- ${e}`);
     }
   }
-  return lines.join("\n");
+  lines.push(
+    "Example of BAD reply: \"I'm Persephone. I share the story of Ajin… She grew up… Feel free to ask!\"",
+    "Example of BAD reply: \"Haha, maybe a little! We've had some fun moments together. It's always nice to chat with you. What have you been up to lately?\"",
+    "Example of BAD reply to \"Amk chinte parso?\": \"Ami tomake chinte pari, kintu specific kichu mone porche na.\"",
+    `Example of GOOD reply shape: short WhatsApp-like lines (e.g. "Hm\\nKi bolcho\\nDhruba...") matching the voice samples — first person, no helpdesk closer.`,
+    input.styleEvidenceLimited
+      ? "Style evidence is limited — keep replies short and first-person; do not invent mannerisms; do not sound like a helpdesk bot."
+      : "Style card (secondary — voice samples win on cadence):",
+    input.styleEvidenceLimited ? "" : card || "{}",
+  );
+  if (bioHits.length) {
+    lines.push(
+      "Optional owner biography snippets (SECONDARY — use only if Retrieved sources do not answer):",
+    );
+    for (const p of bioHits) {
+      lines.push(`- ${p}`);
+    }
+  }
+  if (bioPrefix) {
+    lines.push(
+      `Optional biography sketch (SECONDARY, may be empty for many personas — retell in first person if used):\n${bioPrefix}`,
+    );
+  } else if (!hasChats) {
+    lines.push("Biography notes: (none yet). Rely on chats when imports exist.");
+  }
+  return lines.filter(Boolean).join("\n");
 }
 
 function buildRelationshipBoundariesBlock(input: PromptBuildInput): string {

@@ -6,6 +6,11 @@ import { env } from "../config/env";
 import { EMBEDDING_PORT, type EmbeddingPort } from "../embeddings/embedding.port";
 import { visibleContentAudiences } from "./audience-filter";
 import type { PersonaScope } from "./persona-scope";
+import {
+  expandQueryForRetrieval,
+  keywordSearchTokens,
+  scorePassageOverlap,
+} from "./query-expand";
 import { rrfTopIds } from "./rrf";
 
 export type RetrievedChunk = {
@@ -35,6 +40,7 @@ export type HybridRetrievalResult = {
 
 const VECTOR_CANDIDATES = 30;
 const FTS_CANDIDATES = 30;
+const KEYWORD_CANDIDATES = 30;
 const DEFAULT_CHUNK_LIMIT = 8;
 const DEFAULT_MEMORY_LIMIT = 6;
 
@@ -132,30 +138,47 @@ export class HybridRetrievalService {
       audiences.map((a) => sql`${a}`),
       sql`, `,
     );
+    const expanded = expandQueryForRetrieval(query);
 
-    const [vectorHits, ftsHits] = await Promise.all([
-      this.vectorChunkHits(scope.personaId, query, audiences),
-      this.ftsChunkHits(scope.personaId, query, audienceSql),
+    const [vectorHits, ftsHits, keywordHits] = await Promise.all([
+      this.vectorChunkHits(scope.personaId, expanded, audiences),
+      this.ftsChunkHits(scope.personaId, expanded, audienceSql),
+      this.keywordChunkHits(scope.personaId, query, audienceSql),
     ]);
 
+    // Pull a wider pool, then re-rank by lexical/synonym overlap so "Good night"
+    // cannot bury a Sidr/Sidor hit that keyword search already found.
+    const poolLimit = Math.max(limit * 3, 24);
     const fused = rrfTopIds(
       [
         vectorHits.map((h, i) => ({ id: h.chunkId, rank: i + 1 })),
         ftsHits.map((h, i) => ({ id: h.chunkId, rank: i + 1 })),
+        keywordHits.map((h, i) => ({ id: h.chunkId, rank: i + 1 })),
       ],
-      limit,
+      poolLimit,
     );
 
     const byId = new Map(
-      [...vectorHits, ...ftsHits].map((h) => [h.chunkId, h] as const),
+      [...vectorHits, ...ftsHits, ...keywordHits].map(
+        (h) => [h.chunkId, h] as const,
+      ),
     );
-    const out: RetrievedChunk[] = [];
-    for (const { id, score } of fused) {
-      const hit = byId.get(id);
-      if (!hit) continue;
-      out.push({ ...hit, score });
-    }
-    return out;
+    const scored = fused
+      .map(({ id, score }) => {
+        const hit = byId.get(id);
+        if (!hit) return null;
+        const overlap = scorePassageOverlap(hit.content, query);
+        return {
+          ...hit,
+          score: score + overlap * 0.02,
+          overlap,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x != null)
+      .sort((a, b) => b.overlap - a.overlap || b.score - a.score)
+      .slice(0, limit);
+
+    return scored.map(({ overlap: _o, ...hit }) => hit);
   }
 
   async searchMemories(
@@ -274,6 +297,58 @@ export class HybridRetrievalService {
         and c.content_tsv @@ q
       order by rank desc
       limit ${FTS_CANDIDATES}
+    `);
+
+    return mapChunkRows(rows);
+  }
+
+  /**
+   * Exact-ish substring hits for expanded tokens (Sidr→Sidor, 2007, baba→bap).
+   * Catches romanized typos that FTS/vector miss.
+   */
+  private async keywordChunkHits(
+    personaId: string,
+    query: string,
+    audienceSql: ReturnType<typeof sql.join>,
+  ) {
+    const variants = keywordSearchTokens(query);
+    if (variants.length === 0) return [];
+
+    // Word-ish boundaries so "sidr" does not need spaces and "2007" stays exact.
+    const rows = await this.db.execute(sql`
+      select
+        c.id as chunk_id,
+        c.content,
+        c.header,
+        c.speaker_role,
+        c.source_kind,
+        c.audience::text as audience,
+        c.file_id,
+        (
+          ${sql.join(
+            variants.map(
+              (v) =>
+                sql`(case when c.content ~* ${"(^|[^[:alnum:]])" + v + "([^[:alnum:]]|$)"} then 1 else 0 end)`,
+            ),
+            sql` + `,
+          )}
+        ) as hit_count
+      from document_chunks c
+      where c.persona_id = ${personaId}::uuid
+        and c.retrieval_allowed = true
+        and c.speaker_role <> 'other'
+        and c.audience in (${audienceSql})
+        and (
+          ${sql.join(
+            variants.map(
+              (v) =>
+                sql`c.content ~* ${"(^|[^[:alnum:]])" + v + "([^[:alnum:]]|$)"}`,
+            ),
+            sql` or `,
+          )}
+        )
+      order by hit_count desc, length(c.content) asc
+      limit ${KEYWORD_CANDIDATES}
     `);
 
     return mapChunkRows(rows);

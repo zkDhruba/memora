@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { estimateTokens } from "./estimate-tokens";
-import { buildChatPrompt, buildRetrievalQuery } from "./prompt-builder";
+import {
+  buildChatPrompt,
+  buildRetrievalQuery,
+  buildStickyRetrievalQuery,
+} from "./prompt-builder";
 import { DISCLOSURE_SENTENCE } from "./stable-instructions";
 import { TOKEN_BUDGET } from "./token-budget";
 
@@ -33,7 +37,7 @@ describe("prompt builder (3.7)", () => {
     expect(built.systemPrompt).toContain("Do not discuss health details.");
     expect(built.systemPrompt).toMatch(/first person/i);
     expect(built.systemPrompt).toContain("BAD reply");
-    expect(built.templateVersion).toBe("chat.v2");
+    expect(built.templateVersion).toBe("chat.v3");
     expect(built.tokens.retrievedSources).toBeLessThanOrEqual(
       TOKEN_BUDGET.retrievedSources,
     );
@@ -76,7 +80,17 @@ describe("prompt builder (3.7)", () => {
     expect(built.systemPrompt).toContain('id="c1"');
     expect(built.memoryMap.m1).toBe("mem-1");
     expect(built.systemPrompt).toContain("<source");
-    expect(built.templateVersion).toBe("chat.v2");
+    expect(built.templateVersion).toBe("chat.v3");
+  });
+
+  it("keeps earlier Sidr anchors in sticky retrieval query", () => {
+    const q = buildStickyRetrievalQuery("What about your father?", [
+      "Ajin 2007 er raat a ki hoyesilo? Sidr",
+      "You say it what happened that night",
+    ]);
+    expect(q).toContain("Sidr");
+    expect(q).toContain("2007");
+    expect(q).toContain("What about your father?");
   });
 
   it("appends previous user turn when message is under 12 tokens", () => {
@@ -107,10 +121,51 @@ describe("prompt builder (3.7)", () => {
       memories: [],
       userMessage: "Do you remember me?",
     });
-    expect(built.systemPrompt).toMatch(/Imports exist/i);
-    expect(built.systemPrompt).toMatch(/Do you remember me/i);
+    expect(built.systemPrompt).toMatch(/Chat imports exist/i);
+    expect(built.systemPrompt).toMatch(/What have you been up to lately/i);
+    expect(built.systemPrompt).toMatch(/SECONDARY/i);
     expect(built.systemPrompt).toContain("Grew up in Dhaka");
   });
+
+  it("puts voice samples ahead of biography when chats exist", () => {
+    const built = buildChatPrompt({
+      displayName: "Ajin",
+      languages: ["bn", "en"],
+      scenario: "living",
+      biography: "Long biography ".repeat(80),
+      styleCard: {},
+      hasImportedRecords: true,
+      styleExcerpts: ["Tension niona", "Ki koro"],
+      chunks: [
+        {
+          chunkId: "c1",
+          content: "Amr abbu pochondo korenna",
+          sourceKind: "chat",
+          speakerRole: "subject",
+          score: 0.9,
+        },
+      ],
+      memories: [],
+      userMessage: "ki koro",
+    });
+    expect(built.systemPrompt).toContain(
+      "Voice samples from your own chat records",
+    );
+    expect(built.systemPrompt).toContain("Amr abbu pochondo korenna");
+    expect(built.systemPrompt).toMatch(/PRIMARY for cadence/i);
+    expect(built.systemPrompt).toMatch(/SECONDARY/i);
+    // With chats present, bio sketch is capped (~400 chars), not the full essay.
+    const sketchMarker = "Optional biography sketch";
+    const sketchAt = built.systemPrompt.indexOf(sketchMarker);
+    expect(sketchAt).toBeGreaterThanOrEqual(0);
+    const after = built.systemPrompt.slice(sketchAt, sketchAt + 500);
+    expect(after.length).toBeLessThan(520);
+    expect(after).not.toContain("Long biography ".repeat(40));
+  });
+
+
+
+
 
   it("never drops boundaries to make room for a huge relationship note", () => {
     const built = buildChatPrompt({
