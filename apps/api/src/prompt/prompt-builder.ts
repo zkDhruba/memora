@@ -50,6 +50,8 @@ export type PromptBuildInput = {
   boundaries?: string[];
   chunks: PromptChunkInput[];
   memories: PromptMemoryInput[];
+  /** Session-only facts/prefs — never described as the person's life. */
+  conversationalMemories?: PromptMemoryInput[];
   conversationSummary?: string | null;
   recentTurns?: PromptTurn[];
   userMessage: string;
@@ -149,6 +151,18 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
     TOKEN_BUDGET.biographicalMemories,
   );
 
+  const convWrapped = (input.conversationalMemories ?? []).map((m, i) => {
+    const marker = `s${i + 1}`;
+    const body = wrapSource({
+      id: marker,
+      kind: "conversational",
+      text: m.text,
+    });
+    return { id: m.memoryId, marker, text: body, score: m.score };
+  });
+  // Small budget share — session prefs/facts stay short.
+  const convTrim = trimScoredToBudget(convWrapped, 400);
+
   // Re-number markers after trim so citation ids stay dense c1..cn / m1..mn
   const citationMap: Record<string, string> = {};
   const sourcesBlockParts: string[] = [];
@@ -167,6 +181,14 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
     memoryMap[marker] = m.id;
     memoriesBlockParts.push(
       m.text.replace(/id="m\d+"/, `id="${marker}"`),
+    );
+  });
+  const conversationalBlockParts: string[] = [];
+  convTrim.kept.forEach((m, i) => {
+    const marker = `s${i + 1}`;
+    memoryMap[marker] = m.id;
+    conversationalBlockParts.push(
+      m.text.replace(/id="s\d+"/, `id="${marker}"`),
     );
   });
 
@@ -198,6 +220,9 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
         : "Retrieved sources: (none)",
     memoriesBlockParts.length
       ? `Biographical memories:\n${memoriesBlockParts.join("\n")}`
+      : "",
+    conversationalBlockParts.length
+      ? `Earlier in this Memora chat (conversational only — not the person's life history):\n${conversationalBlockParts.join("\n")}`
       : "",
     summary.text,
   ]

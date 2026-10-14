@@ -171,7 +171,7 @@ export class MemoryRepository {
     });
   }
 
-  /** Conversational retrieval only — scoped by session later (3.10). */
+  /** Conversational retrieval only — scoped to one session (3.10). */
   async searchConversational(
     personaId: string,
     sessionId: string,

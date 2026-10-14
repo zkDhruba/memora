@@ -127,6 +127,13 @@ describe("chat persistence on disconnect (3.8)", () => {
 
     const audit = { record: async () => undefined };
 
+    const memoryRepo = {
+      searchConversational: async () => [],
+    };
+    const conversationalWriter = {
+      maybeWrite: async () => [],
+    };
+
     const chat = new ChatService(
       db as never,
       access as never,
@@ -134,6 +141,8 @@ describe("chat persistence on disconnect (3.8)", () => {
       retrieval as never,
       fake,
       audit as never,
+      memoryRepo as never,
+      conversationalWriter as never,
     );
 
     const events: Array<{ event: string; data: unknown }> = [];

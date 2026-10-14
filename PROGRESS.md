@@ -122,7 +122,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 
 - [x] **3.8** SSE streaming chat + persistence
 - [x] **3.9** Citations + abstention rewrite
-- [ ] **3.10** Conversational memory writer
+- [x] **3.10** Conversational memory writer
 - [ ] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
 - [ ] **3.11** Daily send quota (Free 26th → `PLAN_LIMIT_CHAT_DAY`)
 - [ ] **3.12** Playwright happy path with fake LLM
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.10 | Conversational memory writer: session_fact/preference from chat; invisible to biographical search |
 | 2026-10-14 | 3.9 | Human-like abstention copy (Banglish chat lines); keep model soft-deny; fix tmra/bhai language detect |
 | 2026-10-14 | 3.9 | Citations + abstention rewrite; strip unknown markers; UI “From your records”; quality=abstained |
 | 2026-10-14 | 3.8+ | Sticky multi-turn retrieval + overlap re-rank; force model to use sources (stop vague Sidr dodge) |
@@ -973,6 +974,21 @@ pnpm --filter @memora/api exec vitest run src/chat/citation-abstention.test.ts
 **Edge:** soft identity (“Who are you?”) never forces abstention; small talk without markers is fine.
 
 **Fail if:** factual answer with zero valid markers is persisted as a freeform claim, or unknown markers remain in stored content.
+
+### 3.10 — Conversational memory writer
+
+```bash
+pnpm --filter @memora/api exec vitest run src/memory/conversational-extract.test.ts src/memory/conversational-memory-writer.test.ts src/memory/memory.repository.test.ts
+# → call-me / exam extract; writer never calls insertBiographical; chunk evidence banned on conversational
+
+# Live: New chat → "Please call me Raju" → send another message
+# → prompt includes conversational note; DB: memories.domain=conversational, memory_type=session_preference
+# → searchBiographical / hybrid memory hits still exclude that row
+```
+
+**Edge:** deleting the conversation session cascades conversational memories (already wired in deleteSession).
+
+**Fail if:** chat writer inserts `domain=biographical`, or conversational rows appear in biographical retrieval.
 
 ---
 

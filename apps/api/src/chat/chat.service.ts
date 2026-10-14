@@ -38,6 +38,8 @@ import {
   isSoftIdentityQuery,
 } from "../retrieval/soft-identity-query";
 import { expandQueryForRetrieval } from "../retrieval/query-expand";
+import { ConversationalMemoryWriter } from "../memory/conversational-memory-writer";
+import { MemoryRepository } from "../memory/memory.repository";
 import {
   applyCitationAbstention,
   isFactualBiographicalQuery,
@@ -65,6 +67,9 @@ export class ChatService {
     private readonly retrieval: HybridRetrievalService,
     @Inject(LLM_PORT) private readonly llm: LlmPort,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(MemoryRepository) private readonly memoryRepo: MemoryRepository,
+    @Inject(ConversationalMemoryWriter)
+    private readonly conversationalWriter: ConversationalMemoryWriter,
   ) {}
 
   async listSessions(userId: string, personaId: string) {
@@ -417,6 +422,29 @@ export class ChatService {
         voiceSamples,
       );
 
+      // Session conversational memories (3.10) — separate from biographical retrieve.
+      let conversationalMemories: Array<{
+        memoryId: string;
+        text: string;
+        score: number;
+      }> = [];
+      try {
+        const convRows = await this.memoryRepo.searchConversational(
+          personaId,
+          sessionId,
+          { limit: 12 },
+        );
+        conversationalMemories = convRows.map((m, i) => ({
+          memoryId: m.id,
+          text: m.text,
+          score: 1 - i * 0.01,
+        }));
+      } catch (err) {
+        this.log.warn(
+          `conversational load skipped: ${(err as Error).message}`,
+        );
+      }
+
       const built = this.prompts.build({
         displayName: persona.displayName,
         languages,
@@ -441,6 +469,7 @@ export class ChatService {
           text: m.text,
           score: m.score,
         })),
+        conversationalMemories,
         conversationSummary: (
           await this.db.query.conversationSessions.findFirst({
             where: eq(conversationSessions.id, sessionId),
@@ -560,6 +589,21 @@ export class ChatService {
         .update(conversationSessions)
         .set({ updatedAt: new Date() })
         .where(eq(conversationSessions.id, sessionId));
+
+      // 3.10 — write session prefs/facts from the user turn (never biographical).
+      if (!aborted && status === "complete") {
+        try {
+          await this.conversationalWriter.maybeWrite({
+            personaId,
+            conversationSessionId: sessionId,
+            userMessage: text,
+          });
+        } catch (err) {
+          this.log.warn(
+            `conversational writer skipped: ${(err as Error).message}`,
+          );
+        }
+      }
 
       sse.send("done", {
         messageId: assistantMessageId,

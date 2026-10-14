@@ -5,7 +5,8 @@
 
 import { isSoftIdentityQuery } from "../retrieval/soft-identity-query";
 
-const MARKER_RE = /\[\[([cm]\d+)\]\]/g;
+/** cN = chunk, mN = biographical memory, sN = session conversational. */
+const MARKER_RE = /\[\[([cms]\d+)\]\]/g;
 
 /** English / Bangla question cues that ask for a recordable fact. */
 const FACTUAL_EN =
