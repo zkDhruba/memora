@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   UseGuards,
@@ -43,6 +46,15 @@ export class FilesController {
     @Param("importId") importId: string,
   ) {
     return this.files.getImport(auth.user.id, personaId, importId);
+  }
+
+  @Delete("imports/:importId")
+  deleteImport(
+    @CurrentAuth() auth: AuthContext,
+    @Param("personaId") personaId: string,
+    @Param("importId") importId: string,
+  ) {
+    return this.files.deleteImport(auth.user.id, personaId, importId);
   }
 
   @Get("files")
@@ -90,5 +102,24 @@ export class FilesController {
     body: SubjectMappingBody,
   ) {
     return this.files.mapSubject(auth.user.id, personaId, fileId, body);
+  }
+
+  @Post("files/:fileId/reprocess")
+  reprocess(
+    @CurrentAuth() auth: AuthContext,
+    @Param("personaId") personaId: string,
+    @Param("fileId") fileId: string,
+  ) {
+    return this.files.reprocessFile(auth.user.id, personaId, fileId);
+  }
+
+  @Delete("files/:fileId")
+  @HttpCode(HttpStatus.OK)
+  deleteFile(
+    @CurrentAuth() auth: AuthContext,
+    @Param("personaId") personaId: string,
+    @Param("fileId") fileId: string,
+  ) {
+    return this.files.deleteFile(auth.user.id, personaId, fileId);
   }
 }

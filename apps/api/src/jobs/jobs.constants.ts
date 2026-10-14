@@ -4,7 +4,7 @@ export const INGESTION_DLQ = "ingestion-dlq";
 /** Default attempts before dead-letter (docs/05). */
 export const INGESTION_MAX_ATTEMPTS = 5;
 
-export type IngestionJobName = "parse" | "test_fail";
+export type IngestionJobName = "parse" | "purge" | "test_fail";
 
 export type IngestionJobPayload = {
   processingJobId: string;

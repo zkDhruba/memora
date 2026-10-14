@@ -128,6 +128,15 @@ export class ObjectStoreService {
     );
   }
 
+  async deleteCleanObject(objectKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.cleanBucket(),
+        Key: objectKey,
+      }),
+    );
+  }
+
   /** Copy quarantine → clean (same key), then delete quarantine object. */
   async promoteQuarantineToClean(objectKey: string): Promise<{
     bucket: string;

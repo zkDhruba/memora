@@ -82,11 +82,21 @@ export function finalizeParsedText(
   };
 }
 
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i;
+
+/** Screenshots / photos are Phase 5 — never treat as text even if MIME was guessed wrong. */
+export function isImageUpload(mediaType: string, filename: string): boolean {
+  return mediaType.startsWith("image/") || IMAGE_EXT.test(filename);
+}
+
 export function formatFromUpload(
   mediaType: string,
   filename: string,
 ): ParseFormat | null {
   const lower = filename.toLowerCase();
+  if (isImageUpload(mediaType, filename)) {
+    return null;
+  }
   if (mediaType === "application/pdf" || lower.endsWith(".pdf")) {
     return "pdf";
   }

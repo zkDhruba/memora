@@ -79,6 +79,47 @@ export class PersonaAccessService {
     return this.requireRoles(userId, personaId, ["owner"]);
   }
 
+  /**
+   * Owner access for restore during the soft-delete grace window.
+   * Soft-deleted personas 404 on normal routes; this is the exception.
+   */
+  async requireOwnerIncludingDeleted(
+    userId: string,
+    personaId: string,
+  ): Promise<PersonaAccess> {
+    const persona = await this.db.query.personas.findFirst({
+      where: eq(personas.id, personaId),
+    });
+    if (!persona) {
+      throw this.notFound();
+    }
+    const membership = await this.loadMembership(userId, personaId);
+    if (!membership) {
+      throw this.notFound();
+    }
+    if (membership.role !== "owner") {
+      await this.audit.record({
+        actorUserId: userId,
+        personaId,
+        action: "authz.denied",
+        targetType: "persona",
+        targetId: personaId,
+        metadata: {
+          code: "PERSONA_FORBIDDEN",
+          role: membership.role,
+          required: ["owner"],
+          via: "restore",
+        },
+      });
+      throw new ApiException(
+        HttpStatus.FORBIDDEN,
+        "PERSONA_FORBIDDEN",
+        "You do not have access to perform this action on this persona.",
+      );
+    }
+    return { persona, membership };
+  }
+
   async requireOwnerOrManager(
     userId: string,
     personaId: string,

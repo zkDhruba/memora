@@ -22,12 +22,29 @@ export default function PersonaDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [startingImport, setStartingImport] = useState(false);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
   const loadFiles = useCallback(() => {
     apiFetch<{ data: SourceFileListItem[] }>(`/personas/${id}/files`)
       .then((res) => setFiles(res.data))
       .catch(() => setFiles([]));
   }, [id]);
+
+  async function startImport() {
+    setStartingImport(true);
+    setError(null);
+    try {
+      const imp = await apiFetch<{ id: string }>(`/personas/${id}/imports`, {
+        method: "POST",
+        body: "{}",
+      });
+      router.push(`/personas/${id}/imports/${imp.id}`);
+    } catch (err) {
+      setError((err as Error).message);
+      setStartingImport(false);
+    }
+  }
 
   const load = useCallback(() => {
     apiFetch<PersonaDetail>(`/personas/${id}`)
@@ -103,6 +120,28 @@ export default function PersonaDetailPage() {
       setError((err as Error).message);
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onDeleteFile(fileId: string, name: string) {
+    if (
+      !confirm(
+        `Delete “${name}” and remove its training content? Other files stay.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingFileId(fileId);
+    setError(null);
+    setMessage(null);
+    try {
+      await apiFetch(`/personas/${id}/files/${fileId}`, { method: "DELETE" });
+      setMessage(`Deleted ${name} and purged its training content.`);
+      loadFiles();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeletingFileId(null);
     }
   }
 
@@ -187,11 +226,21 @@ export default function PersonaDetailPage() {
       </section>
 
       <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm">
-        <h2 className="font-medium">Source files</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium">Source files</h2>
+          <button
+            type="button"
+            disabled={startingImport}
+            onClick={() => void startImport()}
+            className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {startingImport ? "Starting…" : "New import"}
+          </button>
+        </div>
         {files.length === 0 ? (
           <p className="mt-2 text-[var(--muted)]">
-            No uploads yet. Use the API upload flow until the import UI lands
-            (2.9).
+            No uploads yet. Start a new import to upload files and watch
+            progress.
           </p>
         ) : (
           <ul className="mt-3 flex flex-col gap-2">
@@ -212,15 +261,31 @@ export default function PersonaDetailPage() {
                     {f.needsSubjectMapping ? " · needs subject mapping" : ""}
                   </p>
                 </div>
-                {f.needsSubjectMapping && canMap ? (
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/personas/${id}/imports/${f.importId}`}
+                    className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
+                  >
+                    Progress
+                  </Link>
+                  {f.needsSubjectMapping && canMap ? (
+                    <button
+                      type="button"
+                      className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
+                      onClick={() => void openMapping(f.id)}
+                    >
+                      Map subject
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm"
-                    onClick={() => void openMapping(f.id)}
+                    disabled={deletingFileId === f.id}
+                    className="rounded-md border border-[var(--danger)] px-3 py-1.5 text-sm text-[var(--danger)] disabled:opacity-60"
+                    onClick={() => void onDeleteFile(f.id, f.originalFilename)}
                   >
-                    Map subject
+                    {deletingFileId === f.id ? "Deleting…" : "Delete"}
                   </button>
-                ) : null}
+                </div>
               </li>
             ))}
           </ul>

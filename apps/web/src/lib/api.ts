@@ -88,6 +88,7 @@ export type PersonaListItem = {
   status: string;
   role: string;
   chatEligible: boolean;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -115,6 +116,7 @@ export type PersonaDetail = PersonaListItem & {
 
 export type SourceFileListItem = {
   id: string;
+  importId: string;
   originalFilename: string;
   mediaType: string;
   status: string;
@@ -129,4 +131,42 @@ export type SourceParticipant = {
   rawLabel: string;
   role: "subject" | "other" | "unknown";
   retrievalAllowed: boolean;
+};
+
+export type ImportFileProgress = {
+  id: string;
+  originalFilename: string;
+  mediaType: string;
+  byteSize: number;
+  status: string;
+  subjectParticipantId: string | null;
+  participantCount: number;
+  needsSubjectMapping: boolean;
+  terminal: boolean;
+  percent: number;
+  stage: string | null;
+  jobStatus: string | null;
+  errorCode: string | null;
+  chunkCount: number | null;
+  parseFormat: string | null;
+  jobs: Array<{
+    id: string;
+    stage: string;
+    status: string;
+    attempts: number;
+    errorCode: string | null;
+    percent: number;
+    generation: number;
+  }>;
+  createdAt: string;
+};
+
+export type ImportProgress = {
+  id: string;
+  status: string;
+  fileCount: number;
+  createdAt: string;
+  terminal: boolean;
+  percent: number;
+  files: ImportFileProgress[];
 };

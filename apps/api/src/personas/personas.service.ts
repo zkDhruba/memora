@@ -281,6 +281,47 @@ export class PersonasService {
     });
   }
 
+  /**
+   * Undo soft delete during the grace window (slot still counted until purge).
+   * Restores status to collecting when host+converse consents exist, else draft.
+   */
+  async restore(userId: string, personaId: string) {
+    const { persona } = await this.access.requireOwnerIncludingDeleted(
+      userId,
+      personaId,
+    );
+    if (!persona.deletedAt) {
+      throw new ApiException(
+        HttpStatus.CONFLICT,
+        "PERSONA_NOT_DELETED",
+        "Persona is not soft-deleted.",
+      );
+    }
+
+    const activeConsents = await this.db.query.consents.findMany({
+      where: and(eq(consents.personaId, personaId), isNull(consents.revokedAt)),
+    });
+    const hasHost = activeConsents.some((c) => c.purpose === "host_records");
+    const hasConverse = activeConsents.some((c) => c.purpose === "converse");
+    const status = hasHost && hasConverse ? "collecting" : "draft";
+
+    await this.db
+      .update(personas)
+      .set({ deletedAt: null, status })
+      .where(eq(personas.id, personaId));
+
+    await this.audit.record({
+      actorUserId: userId,
+      personaId,
+      action: "persona.restore",
+      targetType: "persona",
+      targetId: personaId,
+      metadata: { status },
+    });
+
+    return this.getOne(userId, personaId);
+  }
+
   async listConsents(userId: string, personaId: string) {
     await this.access.requireOwner(userId, personaId);
     const rows = await this.db.query.consents.findMany({

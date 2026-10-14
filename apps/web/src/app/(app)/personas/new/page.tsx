@@ -71,7 +71,7 @@ export default function NewPersonaPage() {
       const e = err as { message: string; code?: string; details?: Record<string, unknown> };
       if (e.code === "PLAN_LIMIT_PERSONAS") {
         setError(
-          `Plan limit reached (${String(e.details?.currentOwned)}/${String(e.details?.maxOwnedPersonas)}). Upgrade to create more.`,
+          `Plan limit reached (${String(e.details?.currentOwned)}/${String(e.details?.maxOwnedPersonas)}). Soft-deleted personas still count — restore one from the dashboard, or upgrade.`,
         );
       } else {
         setError(e.message);

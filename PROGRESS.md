@@ -90,8 +90,8 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 ### Bite 4 — Chunk and library
 
 - [x] **2.8** Chunker (chat / journal / doc rules)
-- [ ] **2.9** Import progress page
-- [ ] **2.10** Reprocess one file only; purge one file only
+- [x] **2.9** Import progress page
+- [x] **2.10** Reprocess one file only; purge one file only
 - [ ] **2.11** Additive second-import test (A stays when B is added)
 
 **Phase 2 done when:** uploads accumulate; duplicate hash safe; purge of A leaves B.
@@ -189,6 +189,10 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 2.10 | DELETE file/import purge (chunks/messages/docs/objects); POST reprocess; UI Delete; check-purge |
+| 2026-10-14 | 1.7+ | POST /personas/:id/restore + dashboard Restore; soft-delete still counts until purge (Free slot trap fixed) |
+| 2026-10-14 | 2.9+ | Unblock stuck PNG uploads → needs_attention; reject images in parse + UI; terminal progress when unsupported |
+| 2026-10-14 | 2.9 | GET import progress (files/jobs/%); polling UI; New import + upload on progress page |
 | 2026-10-13 | 2.8 | document_chunks + chat/journal/prose chunkers; chunk after parse / subject map |
 | 2026-10-13 | 2.7 | source_participants.retrieval_allowed; others/unknown false; subject true on map |
 | 2026-10-13 | 2.6 | WhatsApp bracketed+dashed parsers; participants/messages; subject-mapping API+UI |
@@ -709,6 +713,57 @@ pnpm --filter @memora/api exec tsx scripts/check-whatsapp.ts
 **Edge:** other-speaker chunks have `retrieval_allowed = false`. Oversized single chat message is not split. Dated journal entries are not merged.
 
 **Fail if:** parse succeeds with zero chunks for non-empty text; other-speaker chunks are retrievable; chat chunking runs before subject mapping.
+
+### 2.9 — Import progress page
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+pnpm --filter @memora/api worker   # or rely on check script’s worker
+pnpm --filter @memora/web dev      # :3000
+
+# Unit helpers
+pnpm --filter @memora/api test
+# → import-progress.test.ts green
+
+# API poll until terminal
+pnpm --filter @memora/api exec tsx scripts/check-import-progress.ts
+# → progress … → ok terminal parsed … → import progress check passed
+```
+
+**Browser happy path**
+1. Persona → **New import** → `/personas/:id/imports/:importId`
+2. Upload a `.txt` / `.md` → progress bar moves; status reaches `parsed` / `needs_attention`
+3. Polling stops when overall `terminal: true` (copy says “Polling stopped”)
+
+**Edge:** empty import stays non-terminal (keeps polling). WhatsApp file needing subject mapping is terminal at `needs_attention` until mapped (then re-open Progress to refresh).
+
+**Fail if:** UI polls forever after all files are `parsed`; GET import returns no `files` / `percent`; New import button missing.
+
+### 2.10 — Reprocess + purge one file
+
+```bash
+pnpm deps:up && pnpm db:migrate
+pnpm --filter @memora/api build && pnpm --filter @memora/api start
+pnpm --filter @memora/api worker   # needed for reprocess parse
+pnpm --filter @memora/web dev
+
+# Automated: purge A leaves B
+pnpm --filter @memora/api exec tsx scripts/check-purge.ts
+# → ok both files parsed → ok purged A → ok purge of A left B intact
+
+pnpm --filter @memora/api test
+# → import-progress.test.ts (deleting = 90%, not terminal)
+```
+
+**Browser**
+1. Persona → source file **Delete** (or import progress → **Delete** / **Delete import**)
+2. Confirm → file disappears; training chunks/messages for that file are gone
+3. Other files on the same persona still listed with their content
+
+**Edge:** purge of file A does not remove file B’s chunks. Reprocess clears only that file’s derivatives then re-parses (worker must be running).
+
+**Fail if:** deleting A removes B’s chunks; Delete leaves `needs_attention`/`parsed` rows still retrievable for A.
 
 ---
 

@@ -81,6 +81,14 @@ export class PersonasController {
     await this.personas.softDelete(auth.user.id, id);
   }
 
+  @Post(":id/restore")
+  async restore(
+    @CurrentAuth() auth: AuthContext,
+    @Param("id") id: string,
+  ) {
+    return this.personas.restore(auth.user.id, id);
+  }
+
   @Get(":id/consents")
   async listConsents(
     @CurrentAuth() auth: AuthContext,

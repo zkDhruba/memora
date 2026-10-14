@@ -76,13 +76,22 @@ export class DocumentParseService {
 
     const format = formatFromUpload(file.mediaType, file.originalFilename);
     if (!format) {
+      // Terminal for UI progress (images, etc.) — do not leave status at `clean`.
+      await this.db
+        .update(sourceFiles)
+        .set({ status: "needs_attention" })
+        .where(eq(sourceFiles.id, file.id));
       await this.db
         .update(sourceFileVersions)
         .set({
           parseReport: {
             ...(version.parseReport ?? {}),
             parse: "skipped_unsupported",
+            errorCode: "UNSUPPORTED_MEDIA",
+            error:
+              "This file type is not supported for text ingestion yet. For WhatsApp, export the chat as a .txt file (not screenshots).",
             mediaType: file.mediaType,
+            filename: file.originalFilename,
             processedAt: new Date().toISOString(),
             generation: input.generation,
           },

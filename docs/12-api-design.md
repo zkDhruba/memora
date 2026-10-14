@@ -77,6 +77,7 @@ Full CRUD. Create is gated by plan. See [22-membership-and-persona-lifecycle.md]
 | GET | `/personas/:id` | Any member | Card appropriate to role |
 | PATCH | `/personas/:id` | Owner, manager | Profile fields |
 | DELETE | `/personas/:id` | Owner | Soft delete |
+| POST | `/personas/:id/restore` | Owner | Undo soft delete during grace (slot still counted until purge) |
 | POST | `/personas/:id/members` | Owner | `{ email, role, audience }` |
 | PATCH | `/personas/:id/members/:userId` | Owner | Role or audience |
 | DELETE | `/personas/:id/members/:userId` | Owner | Revoke |
@@ -107,9 +108,10 @@ Successful create returns the persona and it must appear in `GET /personas?for=c
 | POST | `/personas/:id/files/presign` | Contributor+ | `{ filename, mediaType, byteSize }` → `{ url, fileId, headers }` |
 | POST | `/personas/:id/files/:fileId/complete` | Contributor+ | Enqueues scan |
 | GET | `/personas/:id/imports/:importId` | Contributor+ | Progress |
+| DELETE | `/personas/:id/imports/:importId` | Owner | Purges all files in the import (derivatives + objects), then closes it |
 | GET | `/personas/:id/files` | Contributor+ | Library. Participants get 403 |
-| POST | `/personas/:id/files/:fileId/reprocess` | Manager+ | New generation |
-| DELETE | `/personas/:id/files/:fileId` | Owner, or uploader | Enqueues purge |
+| POST | `/personas/:id/files/:fileId/reprocess` | Manager+ | New generation; clears this file’s derivatives then re-parses |
+| DELETE | `/personas/:id/files/:fileId` | Owner, or uploader | Purges this file’s chunks/messages/docs/objects; other files untouched |
 | POST | `/personas/:id/files/:fileId/subject-mapping` | Manager+ | `{ participantId }` |
 
 Presign failure: unsupported MIME `415`, oversize `413`, missing consent `422 CONSENT_REQUIRED`.

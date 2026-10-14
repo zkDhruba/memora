@@ -1,6 +1,8 @@
 import { HttpStatus, Inject, Injectable } from "@nestjs/common";
 import {
   consents,
+  documentChunks,
+  processingJobs,
   sourceFiles,
   sourceFileVersions,
   sourceImports,
@@ -12,7 +14,7 @@ import type {
   PresignFileBody,
   SubjectMappingBody,
 } from "@memora/shared";
-import { and, eq, isNull, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
@@ -22,6 +24,12 @@ import { PersonaAccessService } from "../personas/persona-access.service";
 import { IngestionQueueService } from "../jobs/ingestion-queue.service";
 import { ClamavScannerService } from "../scanning/clamav-scanner.service";
 import { ObjectStoreService } from "../storage/object-store.service";
+import { FilePurgeService } from "./file-purge.service";
+import {
+  fileProgressPercent,
+  isFileTerminal,
+  jobProgressPercent,
+} from "./import-progress";
 
 function sanitizeFilename(name: string): string {
   const base = name.replace(/\\/g, "/").split("/").pop() ?? "upload";
@@ -40,6 +48,7 @@ export class FilesService {
     private readonly ingestion: IngestionQueueService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ChunkPersistService) private readonly chunks: ChunkPersistService,
+    @Inject(FilePurgeService) private readonly purge: FilePurgeService,
   ) {}
 
   async createImport(userId: string, personaId: string) {
@@ -81,11 +90,114 @@ export class FilesService {
         "Import not found.",
       );
     }
+
+    const files = await this.db.query.sourceFiles.findMany({
+      where: and(
+        eq(sourceFiles.importId, importId),
+        eq(sourceFiles.personaId, personaId),
+        sql`${sourceFiles.status} not in ('deleted', 'deleting')`,
+      ),
+      orderBy: (f, { asc }) => [asc(f.createdAt)],
+      with: {
+        participants: { columns: { id: true } },
+        versions: {
+          orderBy: (v, { desc: d }) => [d(v.generation)],
+          limit: 1,
+        },
+      },
+    });
+
+    const filePayloads = [];
+    for (const f of files) {
+      const version = f.versions[0];
+      let jobs: Array<{
+        id: string;
+        stage: string;
+        status: string;
+        attempts: number;
+        errorCode: string | null;
+        percent: number;
+        generation: number;
+      }> = [];
+
+      if (version) {
+        const jobRows = await this.db.query.processingJobs.findMany({
+          where: eq(processingJobs.fileVersionId, version.id),
+          orderBy: (j, { asc }) => [asc(j.createdAt)],
+        });
+        jobs = jobRows.map((j) => ({
+          id: j.id,
+          stage: j.stage,
+          status: j.status,
+          attempts: j.attempts,
+          errorCode: j.errorCode,
+          percent: jobProgressPercent(j.status),
+          generation: j.generation,
+        }));
+      }
+
+      const latestJob = jobs[jobs.length - 1];
+      const parseReport = (version?.parseReport ?? {}) as Record<
+        string,
+        unknown
+      >;
+      const terminal = isFileTerminal(f.status, {
+        jobStatus: latestJob?.status,
+      });
+      const percent = fileProgressPercent({
+        fileStatus: f.status,
+        jobStatus: latestJob?.status,
+        jobStage: latestJob?.stage,
+      });
+
+      filePayloads.push({
+        id: f.id,
+        originalFilename: f.originalFilename,
+        mediaType: f.mediaType,
+        byteSize: f.byteSize,
+        status: f.status,
+        subjectParticipantId: f.subjectParticipantId,
+        participantCount: f.participants.length,
+        needsSubjectMapping:
+          f.subjectParticipantId == null && f.participants.length > 0,
+        terminal,
+        percent,
+        stage: latestJob?.stage ?? null,
+        jobStatus: latestJob?.status ?? null,
+        errorCode: latestJob?.errorCode ?? null,
+        chunkCount:
+          typeof parseReport.chunkCount === "number"
+            ? parseReport.chunkCount
+            : null,
+        parseFormat:
+          typeof parseReport.format === "string"
+            ? parseReport.format
+            : typeof parseReport.kind === "string"
+              ? parseReport.kind
+              : null,
+        jobs,
+        createdAt: f.createdAt,
+      });
+    }
+
+    const terminal =
+      filePayloads.length > 0 && filePayloads.every((f) => f.terminal);
+    const percent =
+      filePayloads.length === 0
+        ? 0
+        : Math.round(
+            filePayloads.reduce((sum, f) => sum + f.percent, 0) /
+              filePayloads.length,
+          );
+
     return {
       id: row.id,
       status: row.status,
       fileCount: row.fileCount,
       createdAt: row.createdAt,
+      terminal,
+      percent,
+      files: filePayloads,
     };
   }
 
@@ -531,6 +643,192 @@ export class FilesService {
       parseReport,
     });
     return id;
+  }
+
+  /**
+   * Owner or uploader may delete. Removes chunks/messages/docs/objects for this
+   * file only; other persona files are untouched.
+   */
+  async deleteFile(userId: string, personaId: string, fileId: string) {
+    const { membership } = await this.access.requireContributor(
+      userId,
+      personaId,
+    );
+    const file = await this.db.query.sourceFiles.findFirst({
+      where: and(
+        eq(sourceFiles.id, fileId),
+        eq(sourceFiles.personaId, personaId),
+      ),
+    });
+    if (!file || file.status === "deleted") {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "FILE_NOT_FOUND",
+        "File not found.",
+      );
+    }
+    const isOwner = membership.role === "owner";
+    const isUploader = file.uploadedByUserId === userId;
+    if (!isOwner && !isUploader) {
+      throw new ApiException(
+        HttpStatus.FORBIDDEN,
+        "PERSONA_FORBIDDEN",
+        "Only the owner or uploader can delete this file.",
+      );
+    }
+
+    const [chunkBefore] = await this.db
+      .select({ value: count() })
+      .from(documentChunks)
+      .where(eq(documentChunks.fileId, fileId));
+
+    await this.purge.purgeFile(fileId);
+
+    await this.audit.record({
+      actorUserId: userId,
+      personaId,
+      action: "file.purge",
+      targetType: "source_file",
+      targetId: fileId,
+      metadata: {
+        originalFilename: file.originalFilename,
+        chunksRemoved: Number(chunkBefore?.value ?? 0),
+      },
+    });
+
+    return {
+      id: fileId,
+      status: "deleted" as const,
+      chunksRemoved: Number(chunkBefore?.value ?? 0),
+    };
+  }
+
+  /**
+   * Purge every non-deleted file in the import, then close the import.
+   * Training content from those files is removed; other imports stay.
+   */
+  async deleteImport(userId: string, personaId: string, importId: string) {
+    await this.access.requireOwner(userId, personaId);
+    const imp = await this.db.query.sourceImports.findFirst({
+      where: and(
+        eq(sourceImports.id, importId),
+        eq(sourceImports.personaId, personaId),
+      ),
+    });
+    if (!imp) {
+      throw new ApiException(
+        HttpStatus.NOT_FOUND,
+        "IMPORT_NOT_FOUND",
+        "Import not found.",
+      );
+    }
+
+    const files = await this.db.query.sourceFiles.findMany({
+      where: and(
+        eq(sourceFiles.importId, importId),
+        eq(sourceFiles.personaId, personaId),
+        sql`${sourceFiles.status} not in ('deleted')`,
+      ),
+    });
+
+    let chunksRemoved = 0;
+    for (const f of files) {
+      const result = await this.deleteFile(userId, personaId, f.id);
+      chunksRemoved += result.chunksRemoved;
+    }
+
+    await this.db
+      .update(sourceImports)
+      .set({ status: "closed" })
+      .where(eq(sourceImports.id, importId));
+
+    await this.audit.record({
+      actorUserId: userId,
+      personaId,
+      action: "import.purge",
+      targetType: "source_import",
+      targetId: importId,
+      metadata: { filesPurged: files.length, chunksRemoved },
+    });
+
+    return {
+      id: importId,
+      status: "closed" as const,
+      filesPurged: files.length,
+      chunksRemoved,
+    };
+  }
+
+  /**
+   * Bump generation and re-parse. Clears this file's derivatives first so old
+   * chunks cannot linger while the new parse runs.
+   */
+  async reprocessFile(userId: string, personaId: string, fileId: string) {
+    await this.access.requireOwnerOrManager(userId, personaId);
+    const file = await this.requireFile(personaId, fileId);
+
+    if (
+      !["clean", "parsed", "needs_attention", "ready"].includes(file.status)
+    ) {
+      throw new ApiException(
+        HttpStatus.CONFLICT,
+        "FILE_STATE",
+        "File cannot be reprocessed in its current state.",
+        { status: file.status },
+      );
+    }
+
+    const latest = await this.db.query.sourceFileVersions.findFirst({
+      where: eq(sourceFileVersions.fileId, fileId),
+      orderBy: [desc(sourceFileVersions.generation)],
+    });
+    if (!latest) {
+      throw new ApiException(
+        HttpStatus.CONFLICT,
+        "FILE_STATE",
+        "File has no version to reprocess.",
+      );
+    }
+
+    await this.purge.clearDerivatives(fileId);
+    await this.db
+      .update(sourceFiles)
+      .set({ status: "clean", subjectParticipantId: null })
+      .where(eq(sourceFiles.id, fileId));
+
+    const generation = latest.generation + 1;
+    const versionId = newId();
+    await this.db.insert(sourceFileVersions).values({
+      id: versionId,
+      fileId,
+      generation,
+      objectKey: latest.objectKey,
+      bucket: latest.bucket,
+      parseReport: { reprocessFrom: latest.generation },
+    });
+
+    const queued = await this.ingestion.enqueue({
+      personaId,
+      fileVersionId: versionId,
+      stage: "parse",
+      generation,
+    });
+
+    await this.audit.record({
+      actorUserId: userId,
+      personaId,
+      action: "file.reprocess",
+      targetType: "source_file",
+      targetId: fileId,
+      metadata: { generation, processingJobId: queued.processingJobId },
+    });
+
+    return {
+      id: fileId,
+      status: "clean" as const,
+      generation,
+      processingJobId: queued.processingJobId,
+    };
   }
 
   private async requireHostConsent(personaId: string) {
