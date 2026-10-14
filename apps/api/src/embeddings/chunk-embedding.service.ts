@@ -75,52 +75,81 @@ export class ChunkEmbeddingService {
     return rows;
   }
 
+  async countEligibleUnembedded(personaId: string): Promise<number> {
+    const model = env.embeddings.model();
+    const rows = await this.db.execute(sql`
+      select count(*)::int as n
+      from document_chunks c
+      left join chunk_embeddings e
+        on e.chunk_id = c.id and e.model = ${model}
+      where c.persona_id = ${personaId}::uuid
+        and c.retrieval_allowed = true
+        and e.chunk_id is null
+        and (
+          c.speaker_role = 'subject'
+          or c.speaker_role = 'document'
+          or c.source_kind in ('journal', 'prose', 'owner_note')
+        )
+    `);
+    const list = Array.isArray(rows)
+      ? rows
+      : ((rows as { rows?: Array<{ n: number }> }).rows ?? []);
+    return Number(list[0]?.n ?? 0);
+  }
+
+  /**
+   * Embed eligible chunks in batches until none remain or maxBatches is hit.
+   * Rebuild/UI and the worker must call this with a high enough maxBatches
+   * (or repeatedly) — a single 32/64 batch leaves huge WhatsApp corpora dark.
+   */
   async embedPersonaChunks(
     personaId: string,
-    opts?: { limit?: number },
-  ): Promise<{ embedded: number; model: string }> {
+    opts?: { limit?: number; maxBatches?: number },
+  ): Promise<{ embedded: number; remaining: number; model: string }> {
     const model = env.embeddings.model();
-    const batch = await this.listEligibleUnembedded(
-      personaId,
-      opts?.limit ?? 32,
-    );
-    if (batch.length === 0) {
-      return { embedded: 0, model };
-    }
+    const batchSize = opts?.limit ?? 32;
+    const maxBatches = Math.max(1, opts?.maxBatches ?? 1);
+    let embedded = 0;
 
-    const texts = batch.map((c) => this.embedText(c.header, c.content));
-    const result = await this.embeddings.embed({
-      personaId,
-      texts,
-      model,
-    });
+    for (let batchNo = 0; batchNo < maxBatches; batchNo++) {
+      const batch = await this.listEligibleUnembedded(personaId, batchSize);
+      if (batch.length === 0) break;
 
-    // Persist under our configured model id (providers may strip the vendor prefix).
-    const storeModel = model;
-    for (let i = 0; i < batch.length; i++) {
-      const chunk = batch[i]!;
-      const vector = result.vectors[i]!;
-      await this.db
-        .insert(chunkEmbeddings)
-        .values({
-          chunkId: chunk.id,
-          model: storeModel,
-          dims: result.dims,
-          embedding: vector,
-        })
-        .onConflictDoUpdate({
-          target: [chunkEmbeddings.chunkId, chunkEmbeddings.model],
-          set: {
+      const texts = batch.map((c) => this.embedText(c.header, c.content));
+      const result = await this.embeddings.embed({
+        personaId,
+        texts,
+        model,
+      });
+
+      for (let i = 0; i < batch.length; i++) {
+        const chunk = batch[i]!;
+        const vector = result.vectors[i]!;
+        await this.db
+          .insert(chunkEmbeddings)
+          .values({
+            chunkId: chunk.id,
+            model,
             dims: result.dims,
             embedding: vector,
-          },
-        });
+          })
+          .onConflictDoUpdate({
+            target: [chunkEmbeddings.chunkId, chunkEmbeddings.model],
+            set: {
+              dims: result.dims,
+              embedding: vector,
+            },
+          });
+      }
+
+      embedded += batch.length;
+      this.log.log(
+        `embedded batch ${batchNo + 1}/${maxBatches} size=${batch.length} total=${embedded} persona=${personaId}`,
+      );
     }
 
-    this.log.log(
-      `embedded ${batch.length} chunks for persona ${personaId} model=${storeModel}`,
-    );
-    return { embedded: batch.length, model: storeModel };
+    const remaining = await this.countEligibleUnembedded(personaId);
+    return { embedded, remaining, model };
   }
 
   /**

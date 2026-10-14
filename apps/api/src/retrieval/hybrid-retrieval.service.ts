@@ -52,7 +52,12 @@ export class HybridRetrievalService {
   async retrieve(
     scope: PersonaScope,
     query: string,
-    opts?: { chunkLimit?: number; memoryLimit?: number },
+    opts?: {
+      chunkLimit?: number;
+      memoryLimit?: number;
+      /** When true (or when ranked search is empty), seed recent subject chat. */
+      softIdentityFallback?: boolean;
+    },
   ): Promise<HybridRetrievalResult> {
     if (!scope.personaId) {
       throw new Error("PersonaScope.personaId is required");
@@ -62,11 +67,59 @@ export class HybridRetrievalService {
       return { chunks: [], memories: [] };
     }
 
+    const chunkLimit = opts?.chunkLimit ?? DEFAULT_CHUNK_LIMIT;
     const [chunks, mems] = await Promise.all([
-      this.searchChunks(scope, q, opts?.chunkLimit ?? DEFAULT_CHUNK_LIMIT),
+      this.searchChunks(scope, q, chunkLimit),
       this.searchMemories(scope, q, opts?.memoryLimit ?? DEFAULT_MEMORY_LIMIT),
     ]);
+
+    if (
+      chunks.length === 0 &&
+      (opts?.softIdentityFallback || mems.length === 0)
+    ) {
+      const fallback = await this.recentSubjectChunks(
+        scope,
+        chunkLimit,
+      );
+      if (fallback.length > 0) {
+        return { chunks: fallback, memories: mems };
+      }
+    }
+
     return { chunks, memories: mems };
+  }
+
+  /** Recency seed when FTS/vector miss soft identity questions. */
+  async recentSubjectChunks(
+    scope: PersonaScope,
+    limit: number = DEFAULT_CHUNK_LIMIT,
+  ): Promise<RetrievedChunk[]> {
+    const audiences = visibleContentAudiences(scope.audience);
+    const audienceSql = sql.join(
+      audiences.map((a) => sql`${a}`),
+      sql`, `,
+    );
+    const rows = await this.db.execute(sql`
+      select
+        c.id as chunk_id,
+        c.content,
+        c.header,
+        c.speaker_role,
+        c.source_kind,
+        c.audience::text as audience,
+        c.file_id
+      from document_chunks c
+      where c.persona_id = ${scope.personaId}::uuid
+        and c.retrieval_allowed = true
+        and c.speaker_role = 'subject'
+        and c.audience in (${audienceSql})
+      order by c.time_end desc nulls last, c.created_at desc
+      limit ${limit}
+    `);
+    return mapChunkRows(rows).map((h, i) => ({
+      ...h,
+      score: 0.05 - i * 0.001,
+    }));
   }
 
   async searchChunks(

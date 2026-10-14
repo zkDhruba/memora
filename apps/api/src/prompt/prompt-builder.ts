@@ -53,6 +53,8 @@ export type PromptBuildInput = {
   userMessage: string;
   /** Appended when userMessage is under 12 tokens (docs/06). */
   previousUserMessage?: string | null;
+  /** True when persona has imported retrieval-allowed chunks (even if none retrieved this turn). */
+  hasImportedRecords?: boolean;
 };
 
 export type PromptTokenBreakdown = {
@@ -189,7 +191,9 @@ export function buildChatPrompt(input: PromptBuildInput): BuiltPrompt {
     rbClamped.text,
     sourcesBlockParts.length
       ? `Retrieved sources:\n${sourcesBlockParts.join("\n")}`
-      : "Retrieved sources: (none)",
+      : input.hasImportedRecords
+        ? "Retrieved sources: (none this turn). Imports exist for this persona — do not claim you have no records or no memory of anyone; use biography notes and say you do not have that specific detail loaded right now."
+        : "Retrieved sources: (none)",
     memoriesBlockParts.length
       ? `Biographical memories:\n${memoriesBlockParts.join("\n")}`
       : "",
@@ -262,12 +266,16 @@ function buildIdentityAndStyleBlock(input: PromptBuildInput): string {
   const excerpts = (input.styleExcerpts ?? []).slice(0, 8);
   const bio = input.biography?.trim();
   const lines = [
-    `Identity: display name "${input.displayName}"; scenario ${input.scenario}; languages: ${langs}.`,
+    `You are "${input.displayName}" in this chat (scenario ${input.scenario}; languages: ${langs}).`,
     bio
-      ? `Owner biography (use for voice and background; do not invent beyond it):\n${bio}`
-      : "Owner biography: (none yet).",
+      ? `Your biography notes (facts about you — retell in first person; never as a narrator about someone else):\n${bio}`
+      : "Biography notes: (none yet).",
+    "Example of BAD reply: \"I'm Persephone. I share the story of Ajin… She grew up… Feel free to ask!\"",
+    "Example of BAD reply to \"Do you remember me?\": \"I don't have any specific memories of our past conversations, but I'm here now!\"",
+    `Example of GOOD reply to \"Do you remember me?\": short first-person greeting using biography (e.g. "Haha — I'm ${input.displayName}. Of course you're talking to me — …") without helpdesk closers.`,
+    `Example of GOOD reply shape: "I'm ${input.displayName}. I grew up… My brother…" (first person, short, no helpdesk closer).`,
     input.styleEvidenceLimited
-      ? "Style evidence is limited — reply briefly in first person using name, languages, and biography; do not invent mannerisms; do not sound like a helpdesk bot."
+      ? "Style evidence is limited — keep replies short and first-person from the biography; do not invent mannerisms; do not sound like a helpdesk bot."
       : "Style card:",
     input.styleEvidenceLimited ? "" : card || "{}",
   ].filter(Boolean);

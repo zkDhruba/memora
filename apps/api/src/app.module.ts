@@ -6,6 +6,7 @@ import { FilesModule } from "./files/files.module";
 import { HealthController } from "./health.controller";
 import { JobsModule } from "./jobs/jobs.module";
 import { EmbeddingsModule } from "./embeddings/embeddings.module";
+import { KnowledgeModule } from "./knowledge/knowledge.module";
 import { LlmModule } from "./llm/llm.module";
 import { MailModule } from "./mail/mail.module";
 import { MemoryModule } from "./memory/memory.module";
@@ -34,6 +35,7 @@ import { StorageModule } from "./storage/storage.module";
     PersonasModule,
     PersonalityModule,
     MemoryModule,
+    KnowledgeModule,
     RetrievalModule,
     PromptModule,
     ChatModule,

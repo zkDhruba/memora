@@ -3,6 +3,7 @@ import {
   consents,
   conversationMessages,
   conversationSessions,
+  documentChunks,
   memories,
   messageCitations,
   messageFeedback,
@@ -17,7 +18,7 @@ import type {
   MessageFeedbackBody,
   SendChatMessageBody,
 } from "@memora/shared";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
@@ -28,6 +29,10 @@ import { PersonaAccessService } from "../personas/persona-access.service";
 import { PromptBuilderService } from "../prompt/prompt-builder.service";
 import type { MembershipAudience } from "../retrieval/persona-scope";
 import { HybridRetrievalService } from "../retrieval/hybrid-retrieval.service";
+import {
+  expandRetrievalQuery,
+  isSoftIdentityQuery,
+} from "../retrieval/soft-identity-query";
 import type { SseWriter } from "./sse";
 
 const HEARTBEAT_MS = 15_000;
@@ -215,10 +220,16 @@ export class ChatService {
       const previousUser = [...recent]
         .reverse()
         .find((t) => t.role === "user");
-      const retrievalQuery = this.prompts.retrievalQuery(
+      const baseRetrievalQuery = this.prompts.retrievalQuery(
         text,
         previousUser?.content,
       );
+      const retrievalQuery = expandRetrievalQuery(
+        baseRetrievalQuery,
+        persona.biography,
+        persona.displayName,
+      );
+      const softIdentity = isSoftIdentityQuery(text);
 
       const audience = (membership.audience ?? "private") as MembershipAudience;
       let retrieved: Awaited<ReturnType<HybridRetrievalService["retrieve"]>> = {
@@ -229,6 +240,7 @@ export class ChatService {
         retrieved = await this.retrieval.retrieve(
           { personaId, actorUserId: userId, audience },
           retrievalQuery,
+          { softIdentityFallback: softIdentity },
         );
       } catch (err) {
         // Thin personas / missing embed key: still chat with empty retrieval.
@@ -236,6 +248,17 @@ export class ChatService {
           `retrieval skipped: ${(err as Error).message}`,
         );
       }
+
+      const [chunkCountRow] = await this.db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(documentChunks)
+        .where(
+          and(
+            eq(documentChunks.personaId, personaId),
+            eq(documentChunks.retrievalAllowed, true),
+          ),
+        );
+      const hasImportedRecords = Number(chunkCountRow?.n ?? 0) > 0;
 
       const profile = await this.db.query.personalityProfiles.findFirst({
         where: eq(personalityProfiles.personaId, personaId),
@@ -281,6 +304,7 @@ export class ChatService {
         styleEvidenceLimited,
         relationship: "neutral",
         boundaries: [],
+        hasImportedRecords,
         chunks: retrieved.chunks.map((c) => ({
           chunkId: c.chunkId,
           content: c.content,

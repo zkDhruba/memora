@@ -31,7 +31,9 @@ describe("prompt builder (3.7)", () => {
     expect(built.systemPrompt).toContain(DISCLOSURE_SENTENCE);
     expect(built.systemPrompt).toContain("Grew up in Dhaka");
     expect(built.systemPrompt).toContain("Do not discuss health details.");
-    expect(built.systemPrompt).toMatch(/first person|role-playing/i);
+    expect(built.systemPrompt).toMatch(/first person/i);
+    expect(built.systemPrompt).toContain("BAD reply");
+    expect(built.templateVersion).toBe("chat.v2");
     expect(built.tokens.retrievedSources).toBeLessThanOrEqual(
       TOKEN_BUDGET.retrievedSources,
     );
@@ -74,7 +76,7 @@ describe("prompt builder (3.7)", () => {
     expect(built.systemPrompt).toContain('id="c1"');
     expect(built.memoryMap.m1).toBe("mem-1");
     expect(built.systemPrompt).toContain("<source");
-    expect(built.templateVersion).toBe("chat.v1");
+    expect(built.templateVersion).toBe("chat.v2");
   });
 
   it("appends previous user turn when message is under 12 tokens", () => {
@@ -91,6 +93,23 @@ describe("prompt builder (3.7)", () => {
     const q = buildRetrievalQuery(long, "ignored previous");
     expect(q).toBe(long.trim());
     expect(q).not.toContain("ignored");
+  });
+
+  it("warns against amnesia when imports exist but retrieval is empty", () => {
+    const built = buildChatPrompt({
+      displayName: "Ajin",
+      languages: ["bn"],
+      scenario: "living",
+      biography: "Grew up in Dhaka with a dry sense of humor.",
+      styleCard: {},
+      hasImportedRecords: true,
+      chunks: [],
+      memories: [],
+      userMessage: "Do you remember me?",
+    });
+    expect(built.systemPrompt).toMatch(/Imports exist/i);
+    expect(built.systemPrompt).toMatch(/Do you remember me/i);
+    expect(built.systemPrompt).toContain("Grew up in Dhaka");
   });
 
   it("never drops boundaries to make room for a huge relationship note", () => {

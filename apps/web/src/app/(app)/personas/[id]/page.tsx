@@ -14,6 +14,7 @@ export default function PersonaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [persona, setPersona] = useState<PersonaDetail | null>(null);
+  const [displayName, setDisplayName] = useState("");
   const [biography, setBiography] = useState("");
   const [files, setFiles] = useState<SourceFileListItem[]>([]);
   const [mappingFileId, setMappingFileId] = useState<string | null>(null);
@@ -24,6 +25,7 @@ export default function PersonaDetailPage() {
   const [pending, setPending] = useState(false);
   const [startingImport, setStartingImport] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
 
   const loadFiles = useCallback(() => {
     apiFetch<{ data: SourceFileListItem[] }>(`/personas/${id}/files`)
@@ -50,6 +52,7 @@ export default function PersonaDetailPage() {
     apiFetch<PersonaDetail>(`/personas/${id}`)
       .then((p) => {
         setPersona(p);
+        setDisplayName(p.displayName);
         setBiography(p.biography ?? "");
       })
       .catch((err) => setError((err as Error).message));
@@ -104,6 +107,31 @@ export default function PersonaDetailPage() {
     }
   }
 
+  async function onRebuildKnowledge() {
+    setRebuilding(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await apiFetch<{
+        embedded: number;
+        remaining: number;
+        embedComplete: boolean;
+        traits: { classBInserted: number; classCInserted: number };
+        memories: { inserted: number };
+      }>(`/personas/${id}/knowledge/rebuild`, { method: "POST", body: "{}" });
+      const embedNote = res.embedComplete
+        ? `embedded ${res.embedded} (all caught up)`
+        : `embedded ${res.embedded}; ${res.remaining} still need embeddings — click Build knowledge again until remaining is 0`;
+      setMessage(
+        `Knowledge rebuild: ${embedNote}; style B=${res.traits.classBInserted} (chat-ready), C=${res.traits.classCInserted} (review); memories ${res.memories.inserted} pending review (Confirm in Review for chat).`,
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRebuilding(false);
+    }
+  }
+
   async function onGrantProviderConsent() {
     setPending(true);
     setError(null);
@@ -133,15 +161,22 @@ export default function PersonaDetailPage() {
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
+    const name = displayName.trim();
+    if (!name) {
+      setError("Display name is required.");
+      return;
+    }
     setPending(true);
     setError(null);
     setMessage(null);
     try {
       const updated = await apiFetch<PersonaDetail>(`/personas/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ biography }),
+        body: JSON.stringify({ displayName: name, biography }),
       });
       setPersona(updated);
+      setDisplayName(updated.displayName);
+      setBiography(updated.biography ?? "");
       setMessage("Saved.");
     } catch (err) {
       setError((err as Error).message);
@@ -212,21 +247,31 @@ export default function PersonaDetailPage() {
           ← Dashboard
         </Link>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          {persona.displayName}
+          {displayName.trim() || persona.displayName}
         </h1>
         <p className="text-sm text-[var(--muted)]">
           {persona.scenario} · {persona.status} · {persona.role}
           {persona.chatEligible ? " · chat eligible" : " · not chat eligible yet"}
         </p>
         {canMap ? (
-          <p className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
             <Link
               href={`/personas/${id}/review`}
-              className="text-sm underline underline-offset-2"
+              className="underline underline-offset-2"
             >
               Review inbox
             </Link>
-          </p>
+            <button
+              type="button"
+              disabled={rebuilding || pending}
+              onClick={() => void onRebuildKnowledge()}
+              className="underline underline-offset-2 disabled:opacity-50"
+            >
+              {rebuilding
+                ? "Building knowledge…"
+                : "Build knowledge from imports"}
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -405,11 +450,28 @@ export default function PersonaDetailPage() {
 
       <form onSubmit={onSave} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1 text-sm">
+          Display name
+          <input
+            type="text"
+            required
+            maxLength={120}
+            className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            disabled={!canMap}
+          />
+          <span className="text-xs text-[var(--muted)]">
+            Shown in Chat and used as the simulation’s speaking name. Prefer the
+            same name as in the biography.
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
           Biography
           <textarea
             className="min-h-32 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2"
             value={biography}
             onChange={(e) => setBiography(e.target.value)}
+            disabled={!canMap}
           />
         </label>
         {message ? <p className="text-sm text-[var(--accent)]">{message}</p> : null}
@@ -417,7 +479,7 @@ export default function PersonaDetailPage() {
         <div className="flex flex-wrap gap-3">
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || !canMap}
             className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
             Save

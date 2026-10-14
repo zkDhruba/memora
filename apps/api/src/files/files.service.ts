@@ -323,6 +323,16 @@ export class FilesService {
       fileId: file.id,
     });
 
+    // After subject mapping, chunks are retrieval-eligible — embed + extract.
+    if (version) {
+      await this.ingestion.enqueue({
+        personaId,
+        fileVersionId: version.id,
+        stage: "embed",
+        generation: version.generation,
+      });
+    }
+
     await this.audit.record({
       actorUserId: userId,
       personaId,
@@ -344,6 +354,7 @@ export class FilesService {
       subjectRetrievalAllowed: true,
       othersRetrievalAllowed: false,
       chunkCount,
+      knowledgeQueued: Boolean(version),
     };
   }
 

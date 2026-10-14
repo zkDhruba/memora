@@ -16,7 +16,7 @@ export const TOKEN_BUDGET = {
 
 export type TokenBudgetKey = keyof typeof TOKEN_BUDGET;
 
-export const PROMPT_TEMPLATE_VERSION = "chat.v1";
+export const PROMPT_TEMPLATE_VERSION = "chat.v2";
 
 /** Soft threshold for “short” user messages that append the previous turn (docs/06). */
 export const SHORT_QUERY_TOKEN_THRESHOLD = 12;

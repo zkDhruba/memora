@@ -215,7 +215,8 @@ export class TraitExtractService {
       facet: input.facet,
       value: input.value,
       knowledgeClass: input.knowledgeClass,
-      status: "pending_review",
+      // Class B = measured stats (safe to use in chat). Class C needs review.
+      status: input.knowledgeClass === "B" ? "confirmed" : "pending_review",
       confidence: input.confidence,
       audience: "any",
       polarity: "observed",

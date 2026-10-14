@@ -211,11 +211,17 @@ async function main() {
       await client.end({ timeout: 5 });
     }
 
-    const { embedded, model } = await embedder.embedPersonaChunks(persona.id, {
-      limit: 16,
-    });
+    const { embedded, remaining, model } = await embedder.embedPersonaChunks(
+      persona.id,
+      {
+        limit: 16,
+        maxBatches: 4,
+      },
+    );
     if (embedded < 1) throw new Error(`expected embeddings, got ${embedded}`);
-    console.log(`ok embedded ${embedded} chunks model=${model}`);
+    console.log(
+      `ok embedded ${embedded} chunks remaining=${remaining} model=${model}`,
+    );
 
     {
       const { db: db2, client: c2 } = createDb(process.env.DATABASE_URL!, {

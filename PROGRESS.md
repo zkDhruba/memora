@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-14 | 3.8+ | Fix chat amnesia: multi-batch embed (rebuild shows remaining), soft-identity retrieval fallback, prompt bans blank-memory lines |
 | 2026-10-14 | 3.8 | SSE chat + conversation_messages; abort finalizes row; Chat UI composer streams tokens |
 | 2026-10-14 | 3.7 | PromptBuilder + token budgets; drop lowest-score sources first; disclosure/boundaries protected |
 | 2026-10-14 | 3.6 | HybridRetrievalService: vector+FTS RRF, audience SQL filter, PersonaScope; sentinel isolation test |
