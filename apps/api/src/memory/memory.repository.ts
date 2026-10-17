@@ -4,7 +4,7 @@ import {
   memoryEvidence,
   type MemoraDb,
 } from "@memora/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, gte, inArray, ne } from "drizzle-orm";
 import { newId } from "../common/ids";
 import { DB } from "../db/db.tokens";
 import { MemoryDomainError } from "./memory.errors";
@@ -171,19 +171,28 @@ export class MemoryRepository {
     });
   }
 
-  /** Conversational retrieval only — scoped to one session (3.10). */
+  /**
+   * Conversational retrieval only — one session or several inside the plan window.
+   * `notBefore` drops rows written before the chat-memory cutoff (3.10b).
+   * Never returns biographical rows.
+   */
   async searchConversational(
     personaId: string,
-    sessionId: string,
-    opts?: { limit?: number },
+    sessionId: string | string[],
+    opts?: { limit?: number; notBefore?: Date },
   ) {
+    const sessionIds = (Array.isArray(sessionId) ? sessionId : [sessionId]).filter(
+      Boolean,
+    );
+    if (sessionIds.length === 0) return [];
     return this.db.query.memories.findMany({
       where: and(
         eq(memories.personaId, personaId),
         eq(memories.domain, "conversational"),
-        eq(memories.conversationSessionId, sessionId),
+        inArray(memories.conversationSessionId, sessionIds),
         ne(memories.status, "rejected"),
         ne(memories.status, "retracted"),
+        opts?.notBefore ? gte(memories.createdAt, opts.notBefore) : undefined,
       ),
       limit: opts?.limit ?? 50,
     });

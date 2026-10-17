@@ -123,7 +123,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 - [x] **3.8** SSE streaming chat + persistence
 - [x] **3.9** Citations + abstention rewrite
 - [x] **3.10** Conversational memory writer
-- [ ] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
+- [x] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
 - [ ] **3.11** Daily send quota (Free 26th → `PLAN_LIMIT_CHAT_DAY`)
 - [ ] **3.12** Playwright happy path with fake LLM
 - [ ] **3.13** Staging deploy + spend alert
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-17 | 3.10b | Plan chat-memory window: Free cap 100 drops oldest message from model context; biographical retrieval uncapped |
 | 2026-10-14 | 3.10 | Conversational memory writer: session_fact/preference from chat; invisible to biographical search |
 | 2026-10-14 | 3.9 | Human-like abstention copy (Banglish chat lines); keep model soft-deny; fix tmra/bhai language detect |
 | 2026-10-14 | 3.9 | Citations + abstention rewrite; strip unknown markers; UI “From your records”; quality=abstained |
@@ -989,6 +990,18 @@ pnpm --filter @memora/api exec vitest run src/memory/conversational-extract.test
 **Edge:** deleting the conversation session cascades conversational memories (already wired in deleteSession).
 
 **Fail if:** chat writer inserts `domain=biographical`, or conversational rows appear in biographical retrieval.
+
+### 3.10b — Plan chat-memory window
+
+```bash
+pnpm --filter @memora/api exec vitest run src/chat/chat-memory-window.test.ts src/chat/chat-persistence.test.ts
+# → 101 messages, cap 100: oldest id m1 absent from context ids; biographical id still listed
+# → conversational row older than cutoff dropped; system rows do not consume a slot
+```
+
+**Edge:** session summary is omitted when the session started before the window cutoff, so an old summary cannot smuggle dropped turns back in. Upgrading the plan raises `maxChatMemoryMessages` on the next request without deleting rows.
+
+**Fail if:** message 101 (the oldest, when 101 exist) is still in model context on Free, or a confirmed biographical memory is filtered by the same cap.
 
 ---
 

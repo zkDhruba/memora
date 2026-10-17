@@ -20,7 +20,7 @@ import type {
   MessageFeedbackBody,
   SendChatMessageBody,
 } from "@memora/shared";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { ApiException } from "../common/api-exception";
 import { newId } from "../common/ids";
 import { AuditService } from "../auth/audit.service";
@@ -40,6 +40,8 @@ import {
 import { expandQueryForRetrieval } from "../retrieval/query-expand";
 import { ConversationalMemoryWriter } from "../memory/conversational-memory-writer";
 import { MemoryRepository } from "../memory/memory.repository";
+import { PlanGuardService } from "../plans/plan-guard.service";
+import { applyChatMemoryWindow } from "./chat-memory-window";
 import {
   applyCitationAbstention,
   isFactualBiographicalQuery,
@@ -70,6 +72,7 @@ export class ChatService {
     @Inject(MemoryRepository) private readonly memoryRepo: MemoryRepository,
     @Inject(ConversationalMemoryWriter)
     private readonly conversationalWriter: ConversationalMemoryWriter,
+    @Inject(PlanGuardService) private readonly plans: PlanGuardService,
   ) {}
 
   async listSessions(userId: string, personaId: string) {
@@ -286,7 +289,12 @@ export class ChatService {
     let errorCode: string | null = null;
 
     try {
-      const recent = await this.loadRecentTurns(sessionId, userMessageId);
+      const windowed = await this.loadWindowedTurns(
+        userId,
+        personaId,
+        userMessageId,
+      );
+      const recent = windowed.turns;
       const previousUser = [...recent]
         .reverse()
         .find((t) => t.role === "user");
@@ -422,18 +430,22 @@ export class ChatService {
         voiceSamples,
       );
 
-      // Session conversational memories (3.10) — separate from biographical retrieve.
+      // Conversational memories inside the plan window (3.10 / 3.10b).
+      // Biographical retrieval above is not capped by maxChatMemoryMessages.
       let conversationalMemories: Array<{
         memoryId: string;
         text: string;
         score: number;
       }> = [];
       try {
-        const convRows = await this.memoryRepo.searchConversational(
-          personaId,
-          sessionId,
-          { limit: 12 },
-        );
+        const sessionIds = [...windowed.sessionIds];
+        const convRows =
+          windowed.cutoff && sessionIds.length
+            ? await this.memoryRepo.searchConversational(personaId, sessionIds, {
+                limit: 12,
+                notBefore: windowed.cutoff,
+              })
+            : [];
         conversationalMemories = convRows.map((m, i) => ({
           memoryId: m.id,
           text: m.text,
@@ -444,6 +456,17 @@ export class ChatService {
           `conversational load skipped: ${(err as Error).message}`,
         );
       }
+
+      const sessionRow = await this.db.query.conversationSessions.findFirst({
+        where: eq(conversationSessions.id, sessionId),
+      });
+      // A summary written from turns that aged out must not reintroduce them.
+      const summary =
+        sessionRow?.summary &&
+        windowed.cutoff &&
+        sessionRow.createdAt >= windowed.cutoff
+          ? sessionRow.summary
+          : null;
 
       const built = this.prompts.build({
         displayName: persona.displayName,
@@ -470,11 +493,7 @@ export class ChatService {
           score: m.score,
         })),
         conversationalMemories,
-        conversationSummary: (
-          await this.db.query.conversationSessions.findFirst({
-            where: eq(conversationSessions.id, sessionId),
-          })
-        )?.summary,
+        conversationSummary: summary,
         recentTurns: recent,
         userMessage: text,
         previousUserMessage: previousUser?.content,
@@ -671,23 +690,66 @@ export class ChatService {
       .where(eq(conversationMessages.id, input.assistantMessageId));
   }
 
-  private async loadRecentTurns(sessionId: string, excludeId: string) {
-    const rows = await this.db.query.conversationMessages.findMany({
-      where: and(
-        eq(conversationMessages.sessionId, sessionId),
-        eq(conversationMessages.status, "complete"),
-      ),
-      orderBy: [desc(conversationMessages.createdAt)],
-      limit: RECENT_TURN_LIMIT + 4,
-    });
-    return rows
-      .filter((m) => m.id !== excludeId && m.role !== "system")
+  /**
+   * Most recent `maxChatMemoryMessages` rows for this user↔persona (all sessions).
+   * Prompt turns are the newest complete slice of that window. Biographical
+   * search does not use this cutoff.
+   */
+  private async loadWindowedTurns(
+    userId: string,
+    personaId: string,
+    excludeId: string,
+  ): Promise<{
+    turns: { role: "user" | "assistant"; content: string }[];
+    cutoff: Date | null;
+    sessionIds: Set<string>;
+  }> {
+    const snapshot = await this.plans.getSnapshot(userId);
+    const max = snapshot.maxChatMemoryMessages;
+    const rows = await this.db
+      .select({
+        id: conversationMessages.id,
+        sessionId: conversationMessages.sessionId,
+        role: conversationMessages.role,
+        content: conversationMessages.content,
+        status: conversationMessages.status,
+        createdAt: conversationMessages.createdAt,
+      })
+      .from(conversationMessages)
+      .innerJoin(
+        conversationSessions,
+        eq(conversationMessages.sessionId, conversationSessions.id),
+      )
+      .where(
+        and(
+          eq(conversationSessions.personaId, personaId),
+          eq(conversationSessions.userId, userId),
+          isNull(conversationSessions.deletedAt),
+          ne(conversationMessages.role, "system"),
+        ),
+      )
+      .orderBy(desc(conversationMessages.createdAt))
+      .limit(Math.max(0, max));
+
+    const window = applyChatMemoryWindow(rows, max);
+    const turns = window.kept
+      .filter(
+        (m) =>
+          m.id !== excludeId &&
+          m.status === "complete" &&
+          (m.role === "user" || m.role === "assistant"),
+      )
+      .slice(0, RECENT_TURN_LIMIT)
       .reverse()
-      .slice(-RECENT_TURN_LIMIT)
       .map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       }));
+    return {
+      turns,
+      cutoff: window.cutoff,
+      sessionIds: new Set(window.kept.map((m) => m.sessionId)),
+    };
   }
 
   /**

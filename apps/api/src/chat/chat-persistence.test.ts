@@ -72,12 +72,14 @@ describe("chat persistence on disconnect (3.8)", () => {
         const rows: unknown[] = [];
         const chain: {
           from: () => typeof chain;
+          innerJoin: () => typeof chain;
           where: () => typeof chain;
           orderBy: () => typeof chain;
           limit: () => Promise<unknown[]>;
           then: Promise<unknown[]>["then"];
         } = {
           from: () => chain,
+          innerJoin: () => chain,
           where: () => chain,
           orderBy: () => chain,
           limit: async () => rows,
@@ -133,6 +135,9 @@ describe("chat persistence on disconnect (3.8)", () => {
     const conversationalWriter = {
       maybeWrite: async () => [],
     };
+    const plans = {
+      getSnapshot: async () => ({ maxChatMemoryMessages: 100 }),
+    };
 
     const chat = new ChatService(
       db as never,
@@ -143,6 +148,7 @@ describe("chat persistence on disconnect (3.8)", () => {
       audit as never,
       memoryRepo as never,
       conversationalWriter as never,
+      plans as never,
     );
 
     const events: Array<{ event: string; data: unknown }> = [];
