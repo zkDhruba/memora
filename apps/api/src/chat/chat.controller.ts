@@ -24,13 +24,18 @@ import { CurrentAuth } from "../auth/current-auth.decorator";
 import type { AuthContext } from "../auth/auth.types";
 import { SessionGuard } from "../auth/session.guard";
 import { ZodValidationPipe } from "../common/zod-validation.pipe";
+import { PlanGuardService } from "../plans/plan-guard.service";
 import { ChatService } from "./chat.service";
 import { createSseWriter } from "./sse";
+import { ApiException } from "../common/api-exception";
 
 @Controller()
 @UseGuards(SessionGuard)
 export class ChatController {
-  constructor(private readonly chat: ChatService) {}
+  constructor(
+    private readonly chat: ChatService,
+    private readonly plans: PlanGuardService,
+  ) {}
 
   @Get("personas/:personaId/conversations")
   list(
@@ -79,6 +84,16 @@ export class ChatController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
+    try {
+      await this.plans.assertCanSendChatMessage(auth.user.id);
+    } catch (err) {
+      if (err instanceof ApiException && !res.headersSent) {
+        res.status(err.getStatus()).json(err.getResponse());
+        return;
+      }
+      throw err;
+    }
+
     const sse = createSseWriter(res);
     const ac = new AbortController();
     const onClose = () => ac.abort();

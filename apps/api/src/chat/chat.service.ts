@@ -266,6 +266,14 @@ export class ChatService {
       status: "complete",
     });
 
+    // Counts even if the provider later fails (docs/22). Pro+ is not incremented
+    // into a cap — the counter still moves so Settings can show usage.
+    try {
+      await this.plans.recordChatSend(userId);
+    } catch (err) {
+      this.log.warn(`chat send counter skipped: ${(err as Error).message}`);
+    }
+
     await this.db.insert(conversationMessages).values({
       id: assistantMessageId,
       sessionId,

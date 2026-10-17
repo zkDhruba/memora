@@ -41,6 +41,7 @@ function ChatHubInner() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +54,12 @@ function ChatHubInner() {
         if (cancelled) return;
         setPersonas(list.data);
         setPlan(p);
+        if (
+          p.maxChatMessagesPerDay != null &&
+          p.chatMessagesUsedToday >= p.maxChatMessagesPerDay
+        ) {
+          setQuotaBlocked(true);
+        }
         if (
           selectedId &&
           !list.data.some((persona) => persona.id === selectedId)
@@ -163,7 +170,7 @@ function ChatHubInner() {
 
   async function onSend(e: FormEvent) {
     e.preventDefault();
-    if (!selected?.chatEligible || !sessionId || !draft.trim() || sending) {
+    if (!selected?.chatEligible || !sessionId || !draft.trim() || sending || quotaBlocked) {
       return;
     }
     const text = draft.trim();
@@ -201,8 +208,26 @@ function ChatHubInner() {
       );
       setMessages(detail.messages);
       setStreamingText("");
+      const nextPlan = await apiFetch<PlanResponse>("/me/plan");
+      setPlan(nextPlan);
+      if (
+        nextPlan.maxChatMessagesPerDay != null &&
+        nextPlan.chatMessagesUsedToday >= nextPlan.maxChatMessagesPerDay
+      ) {
+        setQuotaBlocked(true);
+      }
     } catch (err) {
-      setError((err as Error).message);
+      const code = (err as { code?: string }).code;
+      if (code === "PLAN_LIMIT_CHAT_DAY") {
+        setMessages((m) => m.filter((msg) => msg.id !== tempUser.id));
+        setDraft(text);
+        setQuotaBlocked(true);
+        setError(
+          "Daily chat limit reached for your plan. Upgrade to send more today.",
+        );
+      } else {
+        setError((err as Error).message);
+      }
     } finally {
       setSending(false);
     }
@@ -413,16 +438,48 @@ function ChatHubInner() {
               </div>
 
               <footer className="border-t border-[var(--border)] px-4 py-3">
+                {plan &&
+                plan.maxChatMessagesPerDay != null &&
+                (quotaBlocked ||
+                  plan.maxChatMessagesPerDay - plan.chatMessagesUsedToday <=
+                    5) ? (
+                  <p className="mb-2 text-xs text-[var(--muted)]">
+                    {Math.max(
+                      0,
+                      plan.maxChatMessagesPerDay - plan.chatMessagesUsedToday,
+                    )}{" "}
+                    of {plan.maxChatMessagesPerDay} sends left today
+                    {quotaBlocked ? (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <Link
+                          href="/settings"
+                          className="text-[var(--accent)] underline underline-offset-2"
+                        >
+                          See plan
+                        </Link>
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
                 <form className="flex gap-2" onSubmit={onSend}>
                   <input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    disabled={!selected.chatEligible || sending || !sessionId}
+                    disabled={
+                      !selected.chatEligible ||
+                      sending ||
+                      !sessionId ||
+                      quotaBlocked
+                    }
                     aria-label="Message"
                     placeholder={
-                      selected.chatEligible
-                        ? "Ask about what is in the records…"
-                        : "Composer unlocks after converse consent"
+                      quotaBlocked
+                        ? "Daily send limit reached"
+                        : selected.chatEligible
+                          ? "Ask about what is in the records…"
+                          : "Composer unlocks after converse consent"
                     }
                     className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm disabled:text-[var(--muted)]"
                   />
@@ -432,7 +489,8 @@ function ChatHubInner() {
                       !selected.chatEligible ||
                       sending ||
                       !sessionId ||
-                      !draft.trim()
+                      !draft.trim() ||
+                      quotaBlocked
                     }
                     className="rounded-md bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >

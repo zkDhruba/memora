@@ -137,6 +137,7 @@ describe("chat persistence on disconnect (3.8)", () => {
     };
     const plans = {
       getSnapshot: async () => ({ maxChatMemoryMessages: 100 }),
+      recordChatSend: async () => 1,
     };
 
     const chat = new ChatService(

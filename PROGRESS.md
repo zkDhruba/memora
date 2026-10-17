@@ -124,7 +124,7 @@ Cursor rule: `.cursor/rules/task-completion-testing.mdc` (always apply).
 - [x] **3.9** Citations + abstention rewrite
 - [x] **3.10** Conversational memory writer
 - [x] **3.10b** Plan chat-memory window (Free: msg 101 not in model context)
-- [ ] **3.11** Daily send quota (Free 26th → `PLAN_LIMIT_CHAT_DAY`)
+- [x] **3.11** Daily send quota (Free 26th → `PLAN_LIMIT_CHAT_DAY`)
 - [ ] **3.12** Playwright happy path with fake LLM
 - [ ] **3.13** Staging deploy + spend alert
 
@@ -189,6 +189,7 @@ YYYY-MM-DD  Completed 1.1–1.2 — monorepo and Compose up
 
 | Date | Completed | Note |
 | --- | --- | --- |
+| 2026-10-17 | 3.11 | Daily send quota: Free 26th send returns 429 PLAN_LIMIT_CHAT_DAY; Pro+ unlimited; composer locks at cap |
 | 2026-10-17 | 3.10b | Plan chat-memory window: Free cap 100 drops oldest message from model context; biographical retrieval uncapped |
 | 2026-10-14 | 3.10 | Conversational memory writer: session_fact/preference from chat; invisible to biographical search |
 | 2026-10-14 | 3.9 | Human-like abstention copy (Banglish chat lines); keep model soft-deny; fix tmra/bhai language detect |
@@ -1002,6 +1003,24 @@ pnpm --filter @memora/api exec vitest run src/chat/chat-memory-window.test.ts sr
 **Edge:** session summary is omitted when the session started before the window cutoff, so an old summary cannot smuggle dropped turns back in. Upgrading the plan raises `maxChatMemoryMessages` on the next request without deleting rows.
 
 **Fail if:** message 101 (the oldest, when 101 exist) is still in model context on Free, or a confirmed biographical memory is filtered by the same cap.
+
+### 3.11 — Daily send quota
+
+```bash
+pnpm --filter @memora/api exec vitest run src/plans/plan-guard.chat-day.test.ts
+# → usedToday 25 on Free rejects with 429 PLAN_LIMIT_CHAT_DAY
+# → usedToday 24 still allowed; Pro+ (null cap) allowed at any count
+
+# Live (Free account, API on :4000):
+# redis-cli SET chat_send:<userId>:$(date -u +%Y%m%d) 25
+# Send in /chat → HTTP 429, composer shows the limit and a link to Settings
+# No new user message row for that rejected send
+# Pro+ (maxChatMessagesPerDay null) still sends
+```
+
+**Edge:** a send that is accepted and then the provider fails still increments the Redis counter. Usage rows are written only when a stream finishes.
+
+**Fail if:** the 26th Free send of the UTC day streams a reply, or Pro+ is rejected for volume.
 
 ---
 
